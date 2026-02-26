@@ -71,7 +71,7 @@ export default function App() {
   }, [mode, target, isSpoiled, startNewQuestion, showToast])
 
   const handleShowHint = () => {
-    if (target) {
+    if (target && target.properties['@id']) {
       setIsSpoiled(true)
       mapService.highlightFeatureById(target.properties['@id'], "#22c55e")
       mapService.zoomToFeatureById(target.properties['@id'])

@@ -10,8 +10,7 @@ class QuizEngine {
     private currentPool: GeoFeature[] = [];
     private mainQueue: GeoFeature[] = [];
     private deferredQueue: DeferredItem[] = [];
-    private currentRegion: string = "All";
-    private lastFeatureId: number | null = null;
+    private lastFeatureId: string | null = null;
 
     setFeatures(data: any) {
         // Support both GeoJSON structure and flat arrays
@@ -29,7 +28,6 @@ class QuizEngine {
                 (f) => f.properties.region === region
             );
         }
-        this.currentRegion = region;
         this.deferredQueue = []; // Clear deferred items when switching regions
         this.generateNewPermutation();
     }
@@ -41,7 +39,7 @@ class QuizEngine {
         // Ensure first item of new permutation isn't the same as last item of previous
         if (this.lastFeatureId !== null && this.mainQueue.length > 1) {
             const firstItemId = this.mainQueue[0].properties['@id'];
-            if (firstItemId === this.lastFeatureId) {
+            if (firstItemId && firstItemId === this.lastFeatureId) {
                 // Swap first item with a random other item
                 const randomIndex = Math.floor(Math.random() * (this.mainQueue.length - 1)) + 1;
                 [this.mainQueue[0], this.mainQueue[randomIndex]] = [this.mainQueue[randomIndex], this.mainQueue[0]];
@@ -83,30 +81,15 @@ class QuizEngine {
         }
 
         const nextQuestion = this.mainQueue.shift() || null;
-        if (nextQuestion) {
+        if (nextQuestion && nextQuestion.properties['@id']) {
             this.lastFeatureId = nextQuestion.properties['@id'];
         }
         return nextQuestion;
     }
 
     handleGiveUp(feature: GeoFeature): void {
-        // Adjust deferral delay based on pool size
-        const totalPoolSize = this.currentPool.length;
-        
-        if (totalPoolSize <= 1) {
-            // Don't defer if pool is too small, just move to next question
-            return;
-        }
-
-        // For small pools, use shorter deferral (1-2 questions)
-        // For larger pools, use standard deferral (5-7 questions)
-        let questionsDelay: number;
-        if (totalPoolSize < 5) {
-            questionsDelay = Math.floor(Math.random() * 2) + 1; // 1-2 questions
-        } else {
-            questionsDelay = Math.floor(Math.random() * 3) + 5; // 5-7 questions
-        }
-
+        // Schedule feature to replay in 5-7 questions
+        const questionsDelay = Math.floor(Math.random() * 3) + 5; // Random between 5-7
         this.deferredQueue.push({
             feature,
             questionsUntil: questionsDelay,

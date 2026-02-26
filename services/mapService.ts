@@ -23,7 +23,6 @@ class MapService {
   private tileLayer?: L.TileLayer
   private showLabels: boolean = true;
   private useSimplifiedPolygons: boolean = true;
-  private simplificationTolerance: number = 0.1; // km (adaptive based on zoom)
   private currentZoom: number = 7;
 
   private getThemeColors(): ThemeColors {
@@ -275,6 +274,7 @@ loadGeoJSON(data: any) {
     }
     }
     highlightFeatureById(osmId: string, color: string = "#22c55e") { // default green
+  if (!this.geoLayer) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   this.geoLayer.eachLayer((layer: any) => {
     if (layer.feature.properties['@id'] === osmId) {
@@ -315,12 +315,13 @@ loadGeoJSON(data: any) {
           const latlng = layer.getLatLng();
           bounds = L.latLngBounds(latlng, latlng);
         } else if ("getBounds" in layer) {
-          bounds = (layer as L.Path).getBounds();
+          bounds = (layer as L.Polygon).getBounds();
         } else {
           return;
         }
         
         // Zoom to fit with a smooth transition that gets interrupted by user interaction
+        if (!this.map) return;
         this.map.fitBounds(bounds, { 
           padding: [50, 50], 
           maxZoom: 12,
