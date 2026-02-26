@@ -1,0 +1,56 @@
+/* Dark Mode Theme */
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --border-color: #334155;
+  --card-bg: #1e293b;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --input-bg: #0f172a;
+  --input-border: #334155;
+  --button-hover-bg: #334155;
+  --overlay-bg: rgba(30, 41, 59, 0.9);
+}
+
+* {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Override Tailwind bg and text colors with CSS variables */
+.bg-white, .bg-slate-100, [class*="bg-white"], [class*="bg-slate"] {
+  background-color: var(--card-bg) !important;
+}
+
+.text-slate-700, .text-slate-800, .text-slate-400, .text-slate-500, .text-gray-500 {
+  color: var(--text-primary) !important;
+}
+
+.border-slate-200, [class*="border-slate"] {
+  border-color: var(--border-color) !important;
+}
+
+input[type="text"],
+input[type="select"],
+input[type="checkbox"],
+select {
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+button {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.shadow, [class*="shadow"] {
+  box-shadow: var(--card-shadow) !important;
+}
+

@@ -1,0 +1,158 @@
+/* Stylized dark sharp UI overrides - scoped under .stylized */
+.stylized {
+  --bg-primary: #211735;
+  --bg-secondary: #281e3f;
+  --panel-bg: #281e3f;
+  --panel-border-color: #3a2444;
+  --text-color: #ffecd6;
+  --accent: #ffbd61;
+  --muted-text: #bfa7d6;
+  --button-top-border-color: #73374e;
+  --button-left-border-color: var(--button-top-border-color);
+  --button-bottom-border-color: #4e204c;
+  --button-right-border-color: var(--button-bottom-border-color);
+  --button-selected-border-color: #a24e53;
+  --button-hover-top-border-color: #e77754;
+  --button-hover-left-border-color: var(--button-hover-top-border-color);
+  --button-hover-bottom-border-color: #a24e53;
+  --button-hover-right-border-color: var(--button-hover-bottom-border-color);
+  --button-hover-highlight-color: #ffc375;
+}
+
+/* Make everything sharp */
+.stylized * {
+  border-radius: 0 !important;
+}
+
+/* Ensure readable text colors throughout the stylized theme */
+.stylized {
+  color: var(--text-color) !important;
+}
+
+/* Keep bold/important text same as main text color */
+.stylized .font-bold,
+.stylized .font-black,
+.stylized strong,
+.stylized b {
+  color: var(--text-color) !important;
+}
+
+/* Header toggle container (Learn / Quiz) */
+.stylized .header-toggle-container {
+  background-color: var(--bg-secondary) !important;
+  border: 2px solid var(--panel-border-color) !important;
+  padding: 6px !important;
+  display: flex !important;
+  gap: 20px !important; /* increased distance between the two buttons */
+  align-items: center !important;
+}
+
+.stylized .header-toggle-container button {
+  background: linear-gradient(180deg, rgba(33,23,53,0.98), rgba(24,16,43,0.98)) !important;
+  color: var(--text-color) !important;
+  border: 2px solid var(--button-selected-border-color) !important;
+  box-shadow: -5px 0 var(--button-left-border-color), 0 -5px var(--button-top-border-color), 5px 0 var(--button-right-border-color), 0 5px var(--button-bottom-border-color) !important;
+  padding: 8px 18px !important;
+}
+
+.stylized .header-toggle-container button:hover {
+  box-shadow: -5px 0 var(--button-hover-left-border-color), 0 -5px var(--button-hover-top-border-color), 5px 0 var(--button-hover-right-border-color), 0 5px var(--button-hover-bottom-border-color) !important;
+}
+
+/* Root backgrounds and text */
+.stylized {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-color) !important;
+}
+
+/* Panels that used to be white */
+.stylized .bg-white {
+  background-color: var(--panel-bg) !important;
+  color: var(--text-color) !important;
+}
+
+.stylized .border-slate-200 {
+  border-color: var(--panel-border-color) !important;
+}
+
+/* Override heavier Tailwind shadows to none so our custom shadows show */
+.stylized .shadow-2xl,
+.stylized .shadow-xl,
+.stylized .shadow-lg {
+  box-shadow: none !important;
+}
+
+/* Stylized button look */
+.stylized button,
+.stylized .stylish-btn {
+  background: linear-gradient(180deg, rgba(40,30,63,0.95), rgba(33,23,53,0.95));
+  color: var(--text-color) !important;
+  border: 2px solid var(--button-selected-border-color) !important;
+  box-shadow: -5px 0 var(--button-left-border-color), 0 -5px var(--button-top-border-color), 5px 0 var(--button-right-border-color), 0 5px var(--button-bottom-border-color);
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.stylized button:hover,
+.stylized .stylish-btn:hover {
+  box-shadow: -5px 0 var(--button-hover-left-border-color), 0 -5px var(--button-hover-top-border-color), 5px 0 var(--button-hover-right-border-color), 0 5px var(--button-hover-bottom-border-color);
+  border-color: var(--button-hover-top-border-color) !important;
+  transform: translateY(-1px);
+}
+
+/* Make selects/inputs match the style */
+.stylized select,
+.stylized select option {
+  color: var(--text-color) !important;
+  background-color: rgba(20,14,30,0.95) !important;
+  border-color: var(--panel-border-color) !important;
+}
+
+.stylized input[type="checkbox"] + label,
+.stylized input[type="checkbox"] {
+  color: var(--text-color) !important;
+}
+
+/* Quiz prompt card */
+.stylized .bg-white.px-8.py-4,
+.stylized .bg-white.px-8.py-4 * {
+  color: var(--text-color) !important;
+}
+.stylized .bg-white.px-8.py-4 {
+  background-color: rgba(20,14,30,0.95) !important;
+  border-bottom: 4px solid #a24e53 !important;
+}
+
+/* Toast adjustments */
+.stylized .bg-green-500 {
+  background-color: #215e3c !important;
+}
+.stylized .bg-red-500 {
+  background-color: #5b2230 !important;
+}
+
+/* Reduce bright blue focus rings to muted outlines */
+.stylized :focus {
+  outline: 2px solid rgba(162,78,83,0.35) !important;
+  outline-offset: 2px;
+}
+
+/* Ensure absolute floating controls get our panel look */
+.stylized .absolute.bg-white {
+  background-color: var(--panel-bg) !important;
+  border: 2px solid var(--panel-border-color) !important;
+}
+
+/* Small helper to apply the button style where needed with class */
+.stylized .btn-2 {
+  display: inline-block;
+}
+
+/* Keep map container untouched but use muted text */
+.stylized .leaflet-container {
+  background-color: #131021;
+}
+
+/* small responsive tweak */
+@media (max-width: 640px) {
+  .stylized .top-24 { top: 20px !important; }
+}
