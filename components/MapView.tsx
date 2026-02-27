@@ -1,7 +1,5 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { mapService } from "../services/mapService"
-// Fix: Ensure this matches your actual file extension
-import data from "../data/objects2.json" 
 import type { GeoFeature } from "../types/geo"
 
 interface Props {
@@ -10,26 +8,40 @@ interface Props {
 
 export default function MapView({ onFeatureSelect }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Inside MapView.tsx
-    useEffect(() => {
+  useEffect(() => {
     if (!mapRef.current) return
 
-    mapService.init(mapRef.current, [42.7339, 25.4858], 7)
-    mapService.loadGeoJSON(data)
-    
-    // We use the service to update the handler so the effect doesn't re-run
+    const loadData = async () => {
+      try {
+        const response = await fetch("/objects2.json")
+        const data = await response.json()
+        
+        mapService.init(mapRef.current!, [42.7339, 25.4858], 7)
+        mapService.loadGeoJSON(data)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Failed to load GeoJSON:", error)
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
     mapService.setFeatureClickHandler(onFeatureSelect)
 
     return () => {
-        mapService.destroy()
+      mapService.destroy()
     }
-    }, []) // EMPTY ARRAY = No resets.
+  }, [])
 
-    // Add a second effect to update the click handler reference without rebuilding the map
-    useEffect(() => {
+  useEffect(() => {
     mapService.setFeatureClickHandler(onFeatureSelect)
-    }, [onFeatureSelect])
+  }, [onFeatureSelect])
 
-  return <div ref={mapRef} className="h-full w-full z-0" />
+  return (
+    <div ref={mapRef} className="h-full w-full z-0">
+      {isLoading && <div className="text-white">Loading map data...</div>}
+    </div>
+  )
 }

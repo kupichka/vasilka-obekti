@@ -3,7 +3,6 @@ import MapView from "./components/MapView"
 import InfoPanel from "./components/InfoPanel"
 import { quizEngine } from "./services/quizEngine"
 import { mapService } from "./services/mapService"
-import data from "./data/objects2.json"
 import type { GeoFeature } from "./types/geo"
 import "./stylized.css"
 
@@ -20,10 +19,18 @@ export default function App() {
 
   // Initialize data and services once on mount
   useEffect(() => {
-    quizEngine.setFeatures(data);
-    mapService.setRawData(data);
-    // Force React to re-render with the populated regions
-    setRegionList(quizEngine.getAvailableRegions());
+    const loadData = async () => {
+      try {
+        const response = await fetch("/objects2.json")
+        const data = await response.json()
+        quizEngine.setFeatures(data)
+        mapService.setRawData(data)
+        setRegionList(quizEngine.getAvailableRegions())
+      } catch (error) {
+        console.error("Failed to load data:", error)
+      }
+    }
+    loadData()
   }, [])
 
   const showToast = useCallback((msg: string, type: "success" | "error") => {
