@@ -1,24 +1,19 @@
-type Theme = 'light' | 'dark';
+// Theme service now only applies the dark stylesheet once.  The UI
+// no longer supports switching between light/dark, so the toggle is
+// repurposed to just affect map tiles.  Keep the implementation around
+// solely for legacy imports (main.tsx used to initialize it) but it
+// behaves as a no-op and always reports "dark".
+
+type Theme = 'dark';
 
 let themeStyleElement: HTMLStyleElement | null = null;
 
 class ThemeService {
-  private currentTheme: Theme = 'light';
-
   constructor() {
-    // Check localStorage for saved preference
-    const saved = localStorage.getItem('theme') as Theme | null;
-    if (saved) {
-      this.currentTheme = saved;
-      this.applyTheme(saved);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      this.currentTheme = 'dark';
-      this.applyTheme('dark');
-    }
+    this.applyDark();
   }
 
-  private async applyTheme(theme: Theme) {
-    // Create a style element if it doesn't exist
+  private async applyDark() {
     if (!themeStyleElement) {
       themeStyleElement = document.createElement('style');
       themeStyleElement.id = 'theme-vars';
@@ -26,30 +21,24 @@ class ThemeService {
     }
 
     try {
-      const filename = theme === 'dark' ? '/src/dark.css' : '/src/light.css';
-      const response = await fetch(filename);
+      const response = await fetch('/src/dark.css');
       const css = await response.text();
-      
-      // Extract just the :root variables part
       const rootMatch = css.match(/:root\s*{[^}]+}/);
       if (rootMatch) {
         themeStyleElement.textContent = rootMatch[0];
-        localStorage.setItem('theme', theme);
       }
     } catch (error) {
-      console.error(`Failed to load theme ${theme}:`, error);
+      console.error('Failed to load dark theme:', error);
     }
   }
 
+  // no-op toggle, always returns dark
   toggleTheme(): Theme {
-    const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
-    this.currentTheme = newTheme;
-    this.applyTheme(newTheme);
-    return newTheme;
+    return 'dark';
   }
 
   getTheme(): Theme {
-    return this.currentTheme;
+    return 'dark';
   }
 }
 

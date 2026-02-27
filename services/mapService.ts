@@ -1,6 +1,5 @@
 import L from "leaflet"
 import type { GeoFeature } from "../types/geo"
-import { themeService } from "./themeService"
 import { polygonOptimizer } from "./polygonOptimizer"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,11 +24,14 @@ class MapService {
   private useSimplifiedPolygons: boolean = true;
   private currentZoom: number = 7;
 
+  // determine feature colors based on whether the *tiles* are in dark mode
+  private darkTiles: boolean = true;
+
   private getThemeColors(): ThemeColors {
-    const isDark = themeService.getTheme() === 'dark';
+    const isDark = this.darkTiles;
     return {
       primaryFeatureColor: isDark ? "#60a5fa" : "#2563eb",
-      primaryFeatureFill: isDark ? "#3b82f6" : "#3b82f6",
+      primaryFeatureFill: "#3b82f6", // same in both
       selectedColor: "#f97316",
       highlightColor: "#22c55e"
     };
@@ -65,6 +67,8 @@ class MapService {
   }
 
   init(container: HTMLDivElement, center: [number, number], zoom: number) {
+    // default tile style is considered dark by default
+    this.darkTiles = true;
     // Prevent double initialization from React StrictMode
     if (this.map) return
 
@@ -91,16 +95,15 @@ class MapService {
       }
     });
 
-    this.tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors"
-    }).addTo(this.map);
+    // apply initial tile layer according to darkTiles flag
+    this.setTileLayer(this.showLabels);
   }
 
   setTileLayer(showLabels: boolean) {
     if (!this.map) return;
 
     this.showLabels = showLabels;
-    const isDark = themeService.getTheme() === 'dark';
+    const isDark = this.darkTiles;
 
     // Remove existing tile layer if any
     if (this.tileLayer) {
@@ -129,10 +132,20 @@ class MapService {
     this.tileLayer = L.tileLayer(url, { attribution }).addTo(this.map);
   }
 
-  updateTilesForTheme() {
+  // When the map tile mode flips we just reapply the layer
+  updateTiles() {
     if (!this.map) return;
-    // Re-apply the current tile layer with the new theme
     this.setTileLayer(this.showLabels);
+  }
+
+  // external API: switch tile darkness and refresh geojson colours
+  setDarkTiles(dark: boolean) {
+    this.darkTiles = dark;
+    this.updateTiles();
+    if (this.geoLayer) {
+      const currentData = this.rawData;
+      this.loadGeoJSON(currentData);
+    }
   }
 
 loadGeoJSON(data: any) {
@@ -332,11 +345,12 @@ loadGeoJSON(data: any) {
     });
   }
 
+  // kept for backwards compatibility; callers should now use
+  // setDarkTiles/ updateTiles directly.  This simply propagates the
+  // change to the tile layer and geojson colors.
   onThemeChange() {
-    // Update tiles for new theme
-    this.updateTilesForTheme();
+    this.updateTiles();
     
-    // Reload the current layer with new colors
     if (this.geoLayer) {
       const currentData = this.rawData;
       // Store the current selection
@@ -364,6 +378,8 @@ loadGeoJSON(data: any) {
   }
 
   setRawData(data: any) {
+    // also keep tile mode consistent with any future operations
+    // (no-op currently)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.rawData = data;
   }

@@ -3,7 +3,6 @@ import MapView from "./components/MapView"
 import InfoPanel from "./components/InfoPanel"
 import { quizEngine } from "./services/quizEngine"
 import { mapService } from "./services/mapService"
-import { themeService } from "./services/themeService"
 import data from "./data/objects2.json"
 import type { GeoFeature } from "./types/geo"
 import "./stylized.css"
@@ -17,7 +16,7 @@ export default function App() {
   const [feedback, setFeedback] = useState<{ msg: string; type: "success" | "error" } | null>(null)
   const [regionList, setRegionList] = useState<string[]>(["All"])
   const [showLabels, setShowLabels] = useState(true)
-  const [isDarkMode, setIsDarkMode] = useState(themeService.getTheme() === 'dark')
+  const [darkTiles, setDarkTiles] = useState(true)
 
   // Initialize data and services once on mount
   useEffect(() => {
@@ -89,7 +88,7 @@ export default function App() {
   };
 
   return (
-    <div className={`h-full w-full relative overflow-hidden ${isDarkMode ? 'stylized' : ''}`} style={{ backgroundColor: 'var(--bg-secondary)' }}>
+    <div className="h-full w-full relative overflow-hidden stylized" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {/* Toast Notification */}
       {feedback && (
         <div className={`absolute top-24 left-1/2 -translate-x-1/2 z-[2000] px-6 py-2 rounded-full shadow-2xl transition-all animate-bounce text-white font-bold ${
@@ -155,17 +154,16 @@ export default function App() {
         <div className="flex items-center gap-2">
           <input 
             type="checkbox" 
-            id="darkMode" 
-            checked={isDarkMode}
+            id="darkTiles" 
+            checked={darkTiles}
             onChange={(e) => {
-              setIsDarkMode(e.target.checked);
-              themeService.toggleTheme();
-              mapService.onThemeChange();
+              setDarkTiles(e.target.checked);
+              mapService.setDarkTiles(e.target.checked);
             }}
             className="cursor-pointer w-4 h-4"
           />
-          <label htmlFor="darkMode" className="text-xs font-bold text-slate-700 cursor-pointer">
-            Dark mode
+          <label htmlFor="darkTiles" className="text-xs font-bold text-slate-700 cursor-pointer">
+            Dark map tiles
           </label>
         </div>
       </div>

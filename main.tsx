@@ -1,10 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './light.css'
+import './dark.css'
 import './index.css'
 import 'leaflet/dist/leaflet.css'
 import App from './App.tsx'
-import { themeService } from './services/themeService'
 import L from "leaflet"
 import markerIcon from "leaflet/dist/images/marker-icon.png"
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png"
@@ -18,8 +17,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 })
 
-// Initialize theme service
-themeService;
+// dark.css is loaded via import; no runtime theme service required
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
