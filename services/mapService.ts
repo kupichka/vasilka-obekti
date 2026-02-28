@@ -20,7 +20,7 @@ class MapService {
   private featureMap?: Map<string, GeoFeature>
   private selectedLayer?: L.Layer
   private tileLayer?: L.TileLayer
-  private invisibleLines: L.Polyline[] = [] // Tracks hitbox lines to prevent memory leaks
+  private invisibleLines: L.Polyline[] = []
 
   private showLabels: boolean = true;
   private useSimplifiedPolygons: boolean = true;
@@ -35,6 +35,43 @@ class MapService {
       selectedColor: "#f97316",
       highlightColor: "#22c55e"
     };
+  }
+
+  /**
+   * Sorts features so that Points and Lines are rendered last (on top),
+   * and Polygons are sorted by area (largest first/bottom, smallest last/top).
+   */
+  private sortFeaturesByArea(features: any[]): any[] {
+    const getFeatureTypePriority = (type: string) => {
+      switch (type) {
+        case 'Point':
+        case 'MultiPoint': return 3;
+        case 'LineString':
+        case 'MultiLineString': return 2;
+        default: return 1; // Polygons
+      }
+    };
+
+    const getRoughArea = (feature: any): number => {
+      if (feature.geometry.type.includes('Point')) return 0;
+      const coords = feature.geometry.coordinates.flat(3);
+      if (!coords || coords.length < 2) return 0;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (let i = 0; i < coords.length; i += 2) {
+        const x = coords[i]; const y = coords[i + 1];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+      return (maxX - minX) * (maxY - minY);
+    };
+
+    return [...features].sort((a, b) => {
+      const priorityA = getFeatureTypePriority(a.geometry.type);
+      const priorityB = getFeatureTypePriority(b.geometry.type);
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      return getRoughArea(b) - getRoughArea(a);
+    });
   }
 
   private isMobileDevice(): boolean {
@@ -55,9 +92,6 @@ class MapService {
     return polygonOptimizer.simplifyGeoJSON(data, { tolerance });
   }
 
-  /**
-   * Cleans up existing GeoJSON layers and ghost hitboxes before rendering new ones
-   */
   private clearCurrentLayers() {
     if (this.geoLayer && this.map) {
       this.map.removeLayer(this.geoLayer);
@@ -66,10 +100,6 @@ class MapService {
     this.invisibleLines = [];
   }
 
-  /**
-   * Centralizes the styling and event binding logic previously duplicated 
-   * across loadGeoJSON and renderFilteredFeatures.
-   */
   private getGeoJsonOptions(): L.GeoJSONOptions {
     const colors = this.getThemeColors();
 
@@ -102,6 +132,33 @@ class MapService {
       onEachFeature: (feature: GeoFeature, layer: any) => {
         const isLine = feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString';
         
+        // --- Hover Logic ---
+        // Inside getGeoJsonOptions > onEachFeature
+        layer.on("mouseover", () => {
+          if (this.selectedLayer === layer) return;
+          
+          layer.setStyle({
+            color: colors.highlightColor,
+            weight: isLine ? 6 : 4,
+            fillOpacity: 0.7
+          });
+
+          // FIX: Only bring lines and points to the front. Leave polygons alone!
+          const isPolygon = feature.geometry.type.includes('Polygon');
+          if (!isPolygon && !L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+            if (typeof layer.bringToFront === 'function') {
+              layer.bringToFront();
+            }
+          }
+        });
+
+        layer.on("mouseout", () => {
+          if (this.selectedLayer !== layer) {
+            this.geoLayer?.resetStyle(layer);
+          }
+        });
+        
+        // --- Click Logic ---
         if (isLine && layer instanceof L.Polyline) {
           const invisibleLine = L.polyline(layer.getLatLngs() as any, {
             color: 'transparent',
@@ -113,8 +170,13 @@ class MapService {
           
           this.invisibleLines.push(invisibleLine);
 
-          invisibleLine.on("mouseover", () => layer.setStyle({ weight: 6, opacity: 0.8 }));
-          invisibleLine.on("mouseout", () => layer.setStyle({ weight: 4, opacity: 1 }));
+          // Sync hitbox hover with actual line
+          invisibleLine.on("mouseover", () => {
+             layer.fire("mouseover");
+          });
+          invisibleLine.on("mouseout", () => {
+             layer.fire("mouseout");
+          });
           
           const clickHandler = () => {
             this.selectLayer(layer);
@@ -133,8 +195,6 @@ class MapService {
     };
   }
 
-  // --- Public API ---
-
   init(container: HTMLDivElement, center: [number, number], zoom: number) {
     this.darkTiles = true;
     if (this.map) return
@@ -147,10 +207,6 @@ class MapService {
       zoom,
       minZoom: 5,
       maxZoom: 15,
-      // maxBounds: [
-      //   [40.5, 21.0],
-      //   [44.9, 29.5]
-      // ],
       maxBoundsViscosity: 0.6
     })
 
@@ -163,13 +219,10 @@ class MapService {
 
   setTileLayer(showLabels: boolean) {
     if (!this.map) return;
-
     this.showLabels = showLabels;
     const isDark = this.darkTiles;
 
-    if (this.tileLayer) {
-      this.map.removeLayer(this.tileLayer);
-    }
+    if (this.tileLayer) this.map.removeLayer(this.tileLayer);
 
     let url: string;
     let attribution: string;
@@ -218,27 +271,34 @@ class MapService {
       if (this.selectedLayer instanceof L.CircleMarker) {
         (this.selectedLayer as L.CircleMarker).setRadius(6);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.geoLayer.resetStyle(this.selectedLayer as any);
     }
 
     this.selectedLayer = layer;
+    const colors = this.getThemeColors();
 
     if (layer instanceof L.CircleMarker) {
       (layer as L.CircleMarker).setStyle({
         radius: 8,
-        color: "#f97316",
+        color: colors.selectedColor,
         weight: 3,
-        fillColor: "#f97316",
+        fillColor: colors.selectedColor,
         fillOpacity: 0.8
       });
+      layer.bringToFront(); // CircleMarkers can always safely come to the front
     } else if ("setStyle" in layer) {
       (layer as L.Path).setStyle({
-        color: "#f97316",
+        color: colors.selectedColor,
         fillOpacity: 0.75,
         weight: 4
       });
-      (layer as L.Path).bringToFront();
+      
+      // FIX: Don't bring selected polygons to the front either
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isPolygon = (layer as any).feature?.geometry?.type?.includes('Polygon');
+      if (!isPolygon && typeof (layer as L.Path).bringToFront === 'function') {
+        (layer as L.Path).bringToFront();
+      }
     }
   }
 
@@ -259,7 +319,6 @@ class MapService {
 
   clearSelection() {
     if (this.selectedLayer && this.geoLayer) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.geoLayer.resetStyle(this.selectedLayer as any);
       this.selectedLayer = undefined;
     }
@@ -267,25 +326,12 @@ class MapService {
 
   highlightFeatureById(osmId: string, color: string = "#22c55e") {
     if (!this.geoLayer) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.geoLayer.eachLayer((layer: any) => {
       if (layer.feature.properties['@id'] === osmId) {
         if (layer instanceof L.CircleMarker) {
-          layer.setStyle({
-            radius: 8,
-            color: color,
-            weight: 3,
-            opacity: 1,
-            fillColor: color,
-            fillOpacity: 0.8
-          });
+          layer.setStyle({ radius: 8, color, weight: 3, opacity: 1, fillColor: color, fillOpacity: 0.8 });
         } else if ("setStyle" in layer) {
-          layer.setStyle({
-            color: color,
-            weight: 4,
-            fillOpacity: 0.7,
-            fillColor: color
-          });
+          layer.setStyle({ color, weight: 4, fillOpacity: 0.7, fillColor: color });
         }
         layer.bringToFront();
       }
@@ -294,28 +340,17 @@ class MapService {
 
   zoomToFeatureById(osmId: string) {
     if (!this.map || !this.geoLayer) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.geoLayer.eachLayer((layer: any) => {
       if (layer.feature.properties['@id'] === osmId) {
         let bounds: L.LatLngBounds;
-        
         if (layer instanceof L.CircleMarker) {
           const latlng = layer.getLatLng();
           bounds = L.latLngBounds(latlng, latlng);
         } else if ("getBounds" in layer) {
           bounds = (layer as L.Polygon).getBounds();
-        } else {
-          return;
-        }
+        } else return;
         
-        if (!this.map) return;
-        this.map.fitBounds(bounds, { 
-          padding: [50, 50], 
-          maxZoom: 14,
-          animate: true,
-          duration: 1.0
-        });
+        this.map?.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true, duration: 1.0 });
       }
     });
   }
@@ -323,26 +358,18 @@ class MapService {
   onThemeChange() {
     this.updateTiles();
     if (this.geoLayer && this.featureMap) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const selectedId = this.selectedLayer && (this.selectedLayer as any).feature?.properties?.['@id'];
-      
       this.reloadGeoJSON();
-
       if (selectedId !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         this.geoLayer.eachLayer((layer: any) => {
-          if (layer.feature.properties['@id'] === selectedId) {
-            this.selectLayer(layer);
-          }
+          if (layer.feature.properties['@id'] === selectedId) this.selectLayer(layer);
         });
       }
     }
   }
 
   resetAllStyles() {
-    if (this.geoLayer) {
-      this.geoLayer.resetStyle();
-    }
+    if (this.geoLayer) this.geoLayer.resetStyle();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -352,17 +379,9 @@ class MapService {
     
     features.forEach((f: any, index: number) => {
       if (f.geometry !== null) {
-        // Fallback: Use @id, then id, then the array index
         const id = f.properties?.['@id'] || f.id || `gen-id-${index}`;
-        
-        // Ensure the property itself exists for later lookups (like highlightFeatureById)
-        if (!f.properties['@id']) {
-          f.properties['@id'] = id;
-        }
-        
+        if (!f.properties['@id']) f.properties['@id'] = id;
         this.featureMap!.set(id, f);
-      }else{
-        console.log("AWAWAWA NOT GEOMETRY");
       }
     });
   }
@@ -370,11 +389,8 @@ class MapService {
   private reloadGeoJSON() {
     if (!this.featureMap) return;
     
-    const features = Array.from(this.featureMap.values());
-    const geoJSON = {
-      type: "FeatureCollection" as const,
-      features
-    };
+    const sortedFeatures = this.sortFeaturesByArea(Array.from(this.featureMap.values()));
+    const geoJSON = { type: "FeatureCollection" as const, features: sortedFeatures };
     this.loadGeoJSON(geoJSON);
   }
 
@@ -385,36 +401,24 @@ class MapService {
       ? Array.from(this.featureMap.values())
       : Array.from(this.featureMap.values()).filter(f => f.properties.region === region);
 
-    const filteredData = {
-      type: "FeatureCollection" as const,
-      features: filteredFeatures
-    };
+    const sortedFeatures = this.sortFeaturesByArea(filteredFeatures);
+    const filteredData = { type: "FeatureCollection" as const, features: sortedFeatures };
 
-    // Make sure we clean up the existing layers first to prevent overlapping issues
     this.clearCurrentLayers();
-
     const displayData = this.optimizeDataForPerformance(filteredData);
-    
-    // We can safely reuse the configuration extracted earlier
     this.geoLayer = L.geoJSON(displayData, this.getGeoJsonOptions());
     this.geoLayer.addTo(this.map);
   }
 
   setSimplificationEnabled(enabled: boolean) {
     this.useSimplifiedPolygons = enabled;
-    if (this.featureMap) {
-      this.reloadGeoJSON();
-    }
+    if (this.featureMap) this.reloadGeoJSON();
   }
 
   getSimplificationStats() {
     if (!this.featureMap) return null;
-    
     const features = Array.from(this.featureMap.values());
-    const fullData = {
-      type: "FeatureCollection" as const,
-      features
-    };
+    const fullData = { type: "FeatureCollection" as const, features };
     const simplified = this.optimizeDataForPerformance(fullData);
     return polygonOptimizer.getSimplificationStats(fullData, simplified);
   }
