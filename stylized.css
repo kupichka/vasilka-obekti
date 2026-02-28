@@ -156,3 +156,108 @@
 @media (max-width: 640px) {
   .stylized .top-24 { top: 20px !important; }
 }
+
+/* Reduce InfoPanel padding on small screens */
+@media (max-width: 768px) {
+  .info-panel-mobile-container > div {
+    padding: 10px !important;
+    max-height: 30vh; /* Don't let it take too much vertical space */
+    overflow-y: auto;
+  }
+  
+  /* Force Leaflet zoom controls to stay accessible */
+  .leaflet-top.leaflet-left {
+    margin-top: 5px !important;
+  }
+
+  /* Make checkboxes a bit larger for touch */
+  .stylized input[type="checkbox"] {
+    transform: scale(1.2);
+    margin-right: 5px;
+  }
+}
+
+/* Ensure the Quiz bar maintains the stylized look even when squashed */
+.stylized .bg-white.p-2.md\:p-4.border-b-4 {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--button-selected-border-color) !important;
+}
+
+/* --- MOBILE UI OPTIMIZATIONS --- */
+@media (max-width: 768px) {
+  /* Remove container background for header on mobile */
+  .stylized .header-toggle-container.mobile-no-bg {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  /* Reduce InfoPanel overlap - pushed up from bottom bar */
+  .info-panel-mobile-container > div {
+    margin-bottom: 50px !important; 
+    margin-left: 0px !important;
+    padding: 12px !important;
+    border-radius: 0 !important;
+  }
+
+  /* --- HORIZONTAL LEAFLET ZOOM CONTROLS --- */
+  .leaflet-control-zoom {
+    display: flex !important;
+    /* flex-direction: row !important; */
+    /* margin-top: 65px !important; Position it below the Quiz bar */
+    border: none !important;
+    box-shadow: none !important;
+    margin-top: 20px !important;
+    visibility: hidden;
+  }
+
+  .leaflet-control-zoom a {
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-color) !important;
+    border: 1px solid var(--panel-border-color) !important;
+    margin-right: 4px !important;
+  }
+
+  /* One-line Quiz Styling */
+  .stylized .bg-white.px-3.py-2.border-b-2 {
+    background-color: rgba(40,30,63,0.98) !important;
+    border-color: var(--accent) !important;
+  }
+
+  .stylized .header-toggle-container button {
+    background: transparent !important;
+    box-shadow: none !important; /* Remove heavy shadows on mobile for clarity */
+    border: 1px solid var(--panel-border-color) !important;
+  }
+  
+  .stylized .header-toggle-container button.bg-white {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--accent) !important;
+    box-shadow: 0 0 10px rgba(255,189,97,0.2) !important;
+  }
+
+  /* 1. Restore the sharp border and gradient background to mobile buttons */
+  .stylized .header-toggle-container button {
+    background: linear-gradient(180deg, rgba(33,23,53,0.98), rgba(24,16,43,0.98)) !important;
+    border: 2px solid var(--button-selected-border-color) !important;
+    /* Re-applying your specific 4-color shadow logic */
+    box-shadow: -3px 0 var(--button-left-border-color), 
+                0 -3px var(--button-top-border-color), 
+                3px 0 var(--button-right-border-color), 
+                0 3px var(--button-bottom-border-color) !important;
+    padding: 6px 12px !important; /* Slightly tighter padding for mobile screens */
+  }
+
+  /* 2. Highlight the active button using your accent color */
+  .stylized .header-toggle-container button.bg-white {
+    background: var(--bg-secondary) !important;
+    border-color: var(--accent) !important;
+    box-shadow: -3px 0 var(--button-hover-left-border-color), 
+                0 -3px var(--button-hover-top-border-color), 
+                3px 0 var(--button-hover-right-border-color), 
+                0 3px var(--button-hover-bottom-border-color) !important;
+  }
+}

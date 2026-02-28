@@ -14,17 +14,21 @@ class QuizEngine {
     private lastFeatureId: string | null = null;
 
     setFeatures(data: any) {
-        // Support both GeoJSON structure and flat arrays
         let features = data.features || data;
-        
-        // Build feature map and region index (single source of truth)
         this.featureMap.clear();
         this.featuresByRegion.clear();
         
-        features.forEach((f: any) => {
-            if (f.geometry === null) return;
+        features.forEach((f: any, index: number) => {
+            if (!f.geometry) return;
+
+            // Use the same fallback logic as MapService
+            const id = f.properties?.['@id'] || f.id || `gen-id-${index}`;
             
-            const id = f.properties['@id'];
+            // Ensure the feature itself has the ID for the MapService lookup
+            if (!f.properties['@id']) {
+                f.properties['@id'] = id;
+            }
+
             this.featureMap.set(id, f);
             
             const region = f.properties.region || 'Unknown';
@@ -34,7 +38,6 @@ class QuizEngine {
             this.featuresByRegion.get(region)!.add(id);
         });
         
-        // Initialize pool with all feature IDs
         this.currentPoolIds = new Set(this.featureMap.keys());
     }
 
@@ -127,8 +130,37 @@ class QuizEngine {
     }
 
     getAvailableRegions(): string[] {
-        const regions = Array.from(this.featuresByRegion.keys());
-        return ["All", ...regions].filter(r => r !== "Unknown");
+        // 1. Define your desired order exactly as they appear in the JSON 'region' property
+        const regionPriority = [
+            "Дунавска равнина",
+            "Предбалкан", 
+            "Стара планина", 
+            "Задбалкански котловини",
+            "Средногорие",
+            "Тракийско-Странджанска",
+            "Пиринска",
+            "Родопи",
+            "Черноморска"
+        ];
+
+        const regions = Array.from(this.featuresByRegion.keys())
+            .filter(r => r !== "Unknown")
+            .sort((a, b) => {
+                const indexA = regionPriority.indexOf(a);
+                const indexB = regionPriority.indexOf(b);
+
+                // If both are in the priority list, sort by their position there
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                
+                // If only one is in the list, move it to the front
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+
+                // If neither are in the list, sort alphabetically as a fallback
+                return a.localeCompare(b);
+            });
+
+        return ["All", ...regions];
     }
 }
 

@@ -8,7 +8,7 @@ export default function InfoPanel({ feature }: Props) {
   if (!feature) {
     return (
       <div className="absolute bottom-4 left-4 z-[1000] bg-white p-4 rounded shadow">
-        <p>Select an object</p>
+        <p>Натисни обект</p>
       </div>
     )
   }

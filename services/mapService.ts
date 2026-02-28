@@ -147,10 +147,10 @@ class MapService {
       zoom,
       minZoom: 5,
       maxZoom: 15,
-      maxBounds: [
-        [40.5, 21.0],
-        [44.9, 29.5]
-      ],
+      // maxBounds: [
+      //   [40.5, 21.0],
+      //   [44.9, 29.5]
+      // ],
       maxBoundsViscosity: 0.6
     })
 
@@ -312,9 +312,9 @@ class MapService {
         if (!this.map) return;
         this.map.fitBounds(bounds, { 
           padding: [50, 50], 
-          maxZoom: 12,
+          maxZoom: 14,
           animate: true,
-          duration: 3.0
+          duration: 1.0
         });
       }
     });
@@ -347,13 +347,22 @@ class MapService {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setRawData(data: any) {
-    const features = data.features || data;
+    const features = data.features || (Array.isArray(data) ? data : []);
     this.featureMap = new Map();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    features.forEach((f: any) => {
+    
+    features.forEach((f: any, index: number) => {
       if (f.geometry !== null) {
-        const id = f.properties['@id'];
+        // Fallback: Use @id, then id, then the array index
+        const id = f.properties?.['@id'] || f.id || `gen-id-${index}`;
+        
+        // Ensure the property itself exists for later lookups (like highlightFeatureById)
+        if (!f.properties['@id']) {
+          f.properties['@id'] = id;
+        }
+        
         this.featureMap!.set(id, f);
+      }else{
+        console.log("AWAWAWA NOT GEOMETRY");
       }
     });
   }

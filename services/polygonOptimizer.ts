@@ -65,11 +65,21 @@ class PolygonOptimizer {
     }
   }
 
-  /**
-   * Simplify a single polygon (ring)
+/**
+   * Safe simplification for Polygon Rings (Requires >= 4 points)
    */
-  private simplifyRing(ring: [number, number][], tolerance: number): [number, number][] {
-    return this.simplifyLine(ring, tolerance);
+  private simplifyPolygonRing(ring: [number, number][], tolerance: number): [number, number][] {
+    const simplified = this.simplifyLine(ring, tolerance);
+    // If simplification destroys the ring, fallback to original to prevent Leaflet crashes
+    return simplified.length >= 4 ? simplified : ring;
+  }
+
+  /**
+   * Safe simplification for LineStrings (Requires >= 2 points)
+   */
+  private simplifyLineString(line: [number, number][], tolerance: number): [number, number][] {
+    const simplified = this.simplifyLine(line, tolerance);
+    return simplified.length >= 2 ? simplified : line;
   }
 
   /**
@@ -83,7 +93,7 @@ class PolygonOptimizer {
       return {
         type: "Polygon",
         coordinates: geometry.coordinates.map((ring: [number, number][]) =>
-          this.simplifyRing(ring, tolerance)
+          this.simplifyPolygonRing(ring, tolerance)
         )
       };
     } else if (geometry.type === "MultiPolygon") {
@@ -91,20 +101,20 @@ class PolygonOptimizer {
         type: "MultiPolygon",
         coordinates: geometry.coordinates.map((polygon: [number, number][][]) =>
           polygon.map((ring: [number, number][]) =>
-            this.simplifyRing(ring, tolerance)
+            this.simplifyPolygonRing(ring, tolerance)
           )
         )
       };
     } else if (geometry.type === "LineString") {
       return {
         type: "LineString",
-        coordinates: this.simplifyRing(geometry.coordinates, tolerance)
+        coordinates: this.simplifyLineString(geometry.coordinates, tolerance)
       };
     } else if (geometry.type === "MultiLineString") {
       return {
         type: "MultiLineString",
         coordinates: geometry.coordinates.map((line: [number, number][]) =>
-          this.simplifyRing(line, tolerance)
+          this.simplifyLineString(line, tolerance)
         )
       };
     }
