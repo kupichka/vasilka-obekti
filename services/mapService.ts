@@ -1,431 +1,510 @@
-import L from "leaflet"
-import type { GeoFeature } from "../types/geo"
-import { polygonOptimizer } from "./polygonOptimizer"
+// mapService.ts
+import L from "leaflet";
+import geojsonvt from "geojson-vt";
+import RBush from "rbush";
+import type { GeoFeature } from "../types/geo";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FeatureClickHandler = (feature: GeoFeature) => void
-
-interface ThemeColors {
-  primaryFeatureColor: string;
-  primaryFeatureFill: string;
-  selectedColor: string;
-  highlightColor: string;
+interface SpatialItem {
+  minX: number; minY: number; maxX: number; maxY: number;
+  feature: GeoFeature;
 }
 
 class MapService {
-  private map?: L.Map
-  private geoLayer?: L.GeoJSON
-  private onFeatureClick?: FeatureClickHandler
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private featureMap?: Map<string, GeoFeature>
-  private selectedLayer?: L.Layer
-  private tileLayer?: L.TileLayer
-  private invisibleLines: L.Polyline[] = []
+  private map?: L.Map;
+  private tileLayer?: L.GridLayer;
+  private tileIndex: any;
+  private spatialIndex = new RBush<SpatialItem>();
+  private onFeatureClick?: (feature: GeoFeature) => void;
 
-  private showLabels: boolean = true;
-  private useSimplifiedPolygons: boolean = true;
-  private currentZoom: number = 7;
+  private featureMap = new Map<string, GeoFeature>();
+  private selectedFeatureId: string | null = null;
+  private highlightedFeatureId: string | null = null; 
+  private hoveredFeatureId: string | null = null; 
+
+  private filteredIds = new Set<string>();
+  private currentRegion: string = "All";
+
   private darkTiles: boolean = true;
+  private showLabels: boolean = true;
+  private pendingRedraw = false;
 
-  private getThemeColors(): ThemeColors {
-    const isDark = this.darkTiles;
+  private mouseMoveThrottle = 40; 
+  private lastMouseMove = 0;
+
+  private getFeatureId(f: GeoFeature): string {
+    if ((f as any)._id) return (f as any)._id;
+    const id = f.properties?.['@id'] || f.id || (f as any)._internalId;
+    return id ? id.toString() : `gen-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  private getThemeColors() {
     return {
-      primaryFeatureColor: isDark ? "#60a5fa" : "#2563eb",
-      primaryFeatureFill: "#3b82f6",
-      selectedColor: "#f97316",
-      highlightColor: "#22c55e"
+      primary: this.darkTiles ? "#60a5fa" : "#2563eb",
+      fill: "rgba(59, 130, 246, 0.15)",
+      outline: this.darkTiles ? "rgba(96, 165, 250, 0.6)" : "rgba(37, 99, 235, 0.6)",
+      highlight: "#22c55e",
+      selected: "#f97316",
     };
   }
 
-  /**
-   * Sorts features so that Points and Lines are rendered last (on top),
-   * and Polygons are sorted by area (largest first/bottom, smallest last/top).
-   */
-  private sortFeaturesByArea(features: any[]): any[] {
-    const getFeatureTypePriority = (type: string) => {
-      switch (type) {
-        case 'Point':
-        case 'MultiPoint': return 3;
-        case 'LineString':
-        case 'MultiLineString': return 2;
-        default: return 1; // Polygons
-      }
-    };
-
-    const getRoughArea = (feature: any): number => {
-      if (feature.geometry.type.includes('Point')) return 0;
-      const coords = feature.geometry.coordinates.flat(3);
-      if (!coords || coords.length < 2) return 0;
-
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (let i = 0; i < coords.length; i += 2) {
-        const x = coords[i]; const y = coords[i + 1];
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
-      }
-      return (maxX - minX) * (maxY - minY);
-    };
-
-    return [...features].sort((a, b) => {
-      const priorityA = getFeatureTypePriority(a.geometry.type);
-      const priorityB = getFeatureTypePriority(b.geometry.type);
-      if (priorityA !== priorityB) return priorityA - priorityB;
-      return getRoughArea(b) - getRoughArea(a);
-    });
-  }
-
-  private isMobileDevice(): boolean {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  }
-
-  private getAdaptiveSimplificationTolerance(zoom: number): number {
-    if (zoom <= 6) return 0.5;
-    if (zoom <= 8) return 0.2;
-    if (zoom <= 10) return 0.1;
-    return 0.05;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private optimizeDataForPerformance(data: any): any {
-    if (!this.useSimplifiedPolygons) return data;
-    const tolerance = this.getAdaptiveSimplificationTolerance(this.currentZoom);
-    return polygonOptimizer.simplifyGeoJSON(data, { tolerance });
-  }
-
-  private clearCurrentLayers() {
-    if (this.geoLayer && this.map) {
-      this.map.removeLayer(this.geoLayer);
-    }
-    this.invisibleLines.forEach(line => line.remove());
-    this.invisibleLines = [];
-  }
-
-  private getGeoJsonOptions(): L.GeoJSONOptions {
-    const colors = this.getThemeColors();
-
-    return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pointToLayer: (_feature: any, latlng: any) => {
-        return L.circleMarker(latlng, {
-          radius: 6,
-          color: colors.primaryFeatureColor,
-          weight: 2,
-          opacity: 1,
-          fillColor: colors.primaryFeatureFill,
-          fillOpacity: 0.5
-        });
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      style: (feature: any) => {
-        const isLine = feature?.geometry?.type === 'LineString' || feature?.geometry?.type === 'MultiLineString';
-        return {
-          color: colors.primaryFeatureColor,
-          fillColor: colors.primaryFeatureFill,
-          weight: isLine ? 4 : 3,
-          opacity: 1,
-          fillOpacity: 0.5,
-          lineCap: 'round',
-          lineJoin: 'round'
-        };
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onEachFeature: (feature: GeoFeature, layer: any) => {
-        const isLine = feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString';
-        
-        // --- Hover Logic ---
-        // Inside getGeoJsonOptions > onEachFeature
-        layer.on("mouseover", () => {
-          if (this.selectedLayer === layer) return;
-          
-          layer.setStyle({
-            color: colors.highlightColor,
-            weight: isLine ? 6 : 4,
-            fillOpacity: 0.7
-          });
-
-          // FIX: Only bring lines and points to the front. Leave polygons alone!
-          const isPolygon = feature.geometry.type.includes('Polygon');
-          if (!isPolygon && !L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-            if (typeof layer.bringToFront === 'function') {
-              layer.bringToFront();
-            }
-          }
-        });
-
-        layer.on("mouseout", () => {
-          if (this.selectedLayer !== layer) {
-            this.geoLayer?.resetStyle(layer);
-          }
-        });
-        
-        // --- Click Logic ---
-        if (isLine && layer instanceof L.Polyline) {
-          const invisibleLine = L.polyline(layer.getLatLngs() as any, {
-            color: 'transparent',
-            weight: 15,
-            opacity: 0,
-            interactive: true,
-            className: 'river-hitbox'
-          }).addTo(this.map!);
-          
-          this.invisibleLines.push(invisibleLine);
-
-          // Sync hitbox hover with actual line
-          invisibleLine.on("mouseover", () => {
-             layer.fire("mouseover");
-          });
-          invisibleLine.on("mouseout", () => {
-             layer.fire("mouseout");
-          });
-          
-          const clickHandler = () => {
-            this.selectLayer(layer);
-            this.onFeatureClick?.(feature);
-          };
-          
-          invisibleLine.on("click", clickHandler);
-          layer.on("click", clickHandler);
-        } else {
-          layer.on("click", () => {
-            this.selectLayer(layer);
-            this.onFeatureClick?.(feature);
-          });
-        }
-      }
-    };
+  public setFeatureClickHandler(handler: (feature: GeoFeature) => void) {
+    this.onFeatureClick = handler;
   }
 
   init(container: HTMLDivElement, center: [number, number], zoom: number) {
-    this.darkTiles = true;
-    if (this.map) return
-
-    this.useSimplifiedPolygons = this.isMobileDevice();
-    this.currentZoom = zoom;
-
-    this.map = L.map(container, {
-      center,
-      zoom,
-      minZoom: 5,
-      maxZoom: 15,
-      maxBoundsViscosity: 0.6
-    })
-
-    this.map.on('zoom', () => {
-      if (this.map) this.currentZoom = this.map.getZoom();
-    });
+    if (this.map) return;
+    this.map = L.map(container, { center, zoom, minZoom: 5, maxZoom: 18 });
+    
+    // Kept the pane just in case you add tooltips or other standard Leaflet overlays later
+    if (!this.map.getPane('featurePane')) {
+      const fp = this.map.createPane('featurePane');
+      fp.style.zIndex = '650'; 
+      fp.style.pointerEvents = 'none'; 
+    }
 
     this.setTileLayer(this.showLabels);
+
+    this.map.on("click", (e: L.LeafletMouseEvent) => {
+      const feature = this.findFeatureAt(e.latlng.lat, e.latlng.lng);
+      if (feature) {
+        this.selectedFeatureId = this.getFeatureId(feature);
+        this.onFeatureClick?.(feature);
+        this.updateHighlightLayer();
+      }
+    });
+
+    this.map.on("mousemove", (e: L.LeafletMouseEvent) => {
+      const now = performance.now();
+      if (now - this.lastMouseMove < this.mouseMoveThrottle) return;
+      this.lastMouseMove = now;
+
+      const feature = this.findFeatureAt(e.latlng.lat, e.latlng.lng);
+      const id = feature ? this.getFeatureId(feature) : null;
+      if (this.hoveredFeatureId !== id) {
+        this.hoveredFeatureId = id;
+        if (this.map) this.map.getContainer().style.cursor = id ? 'pointer' : '';
+        this.updateHighlightLayer();
+      }
+    });
+  }
+
+  setRawData(data: any) {
+    const features = data.features || [];
+    this.featureMap.clear();
+    this.spatialIndex.clear();
+    const items: SpatialItem[] = [];
+
+    features.forEach((f: GeoFeature, index: number) => {
+      const existingId = f.properties?.['@id'] || f.id;
+      const stableId = existingId ? existingId.toString() : `feat-${index}`;
+      
+      (f as any)._id = stableId;
+      if (!f.properties) f.properties = {};
+      f.properties.__id = stableId;
+
+      this.featureMap.set(stableId, f);
+
+      const tempLayer = L.geoJSON(f);
+      const bounds = tempLayer.getBounds();
+      if (bounds.isValid()) {
+        items.push({ 
+          minX: bounds.getWest(), 
+          minY: bounds.getSouth(), 
+          maxX: bounds.getEast(), 
+          maxY: bounds.getNorth(), 
+          feature: f 
+        });
+      }
+    });
+
+    this.spatialIndex.load(items);
+    this.tileIndex = geojsonvt(data, { maxZoom: 18, tolerance: 5, extent: 4096, buffer: 128 });
+    this.setRegion("All");
+  }
+
+  private drawTileCanvas(canvas: HTMLCanvasElement, coords: L.Coords) {
+    const size = 256;
+    const dpr = window.devicePixelRatio || 1;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
+    if (!vtTile) {
+      ctx.restore();
+      return;
+    }
+
+    // TILE SEAMS FIX: Strict clipping mask
+    ctx.beginPath();
+    ctx.rect(0, 0, size, size);
+    ctx.clip();
+
+    ctx.lineJoin = 'round'; 
+    ctx.lineCap = 'round';
+    const colors = this.getThemeColors();
+
+    const renderFeature = (feature: any, isActive: boolean, isSelected: boolean) => {
+      let currentFill = colors.fill;
+      let currentOutline = colors.outline;
+      let currentLineWidth = 1;
+
+      if (isActive) {
+        if (isSelected) {
+          currentOutline = colors.selected;
+          currentFill = "rgba(249, 115, 22, 0.4)"; 
+          currentLineWidth = 2.5;
+        } else {
+          currentOutline = colors.highlight;
+          currentFill = "rgba(34, 197, 94, 0.4)";
+          currentLineWidth = 2;
+        }
+      } else if (feature.type === 2) {
+        currentOutline = colors.primary;
+        currentLineWidth = 1.5;
+      }
+
+      if (feature.type === 1) { // Points
+        ctx.fillStyle = currentFill;
+        ctx.strokeStyle = currentOutline;
+        ctx.lineWidth = currentLineWidth;
+
+        for (const p of feature.geometry) {
+          const px = (p[0] / 4096) * size;
+          const py = (p[1] / 4096) * size;
+          
+          ctx.beginPath();
+          ctx.arc(px, py, isActive ? 8 : 6, 0, Math.PI * 2); 
+          ctx.fill();
+          ctx.stroke();
+        }
+        return;
+      }
+
+      ctx.beginPath();
+      for (const ring of feature.geometry) {
+        for (let i = 0; i < ring.length; i++) {
+          const x = (ring[i][0] / 4096) * size;
+          const y = (ring[i][1] / 4096) * size;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+      }
+
+      if (feature.type === 3) { // Polygon
+        ctx.fillStyle = currentFill;
+        ctx.fill();
+        ctx.strokeStyle = currentOutline;
+        ctx.lineWidth = currentLineWidth;
+        ctx.stroke();
+      } else if (feature.type === 2) { // LineString
+        ctx.strokeStyle = currentOutline;
+        ctx.lineWidth = currentLineWidth;
+        ctx.stroke();
+      }
+    };
+
+    // TWO-PASS RENDER FIX
+    const activeFeatures: any[] = [];
+
+    for (const feature of vtTile.features) {
+      const vid = feature.tags?.['@id']?.toString() || feature.id?.toString();
+      if (this.currentRegion !== "All" && vid && !this.filteredIds.has(vid)) continue;
+
+      const isSelected = vid === this.selectedFeatureId;
+      const isHighlighted = vid === this.highlightedFeatureId;
+      const isHovered = vid === this.hoveredFeatureId;
+      const isActive = isSelected || isHighlighted || isHovered;
+
+      if (isActive) {
+        activeFeatures.push({ feature, isSelected });
+      } else {
+        renderFeature(feature, false, false);
+      }
+    }
+
+    // Draw active features on top
+    for (const item of activeFeatures) {
+      renderFeature(item.feature, true, item.isSelected);
+    }
+    
+    ctx.restore();
+  }
+
+  loadGeoJSON() {
+    if (!this.map || !this.tileIndex) return;
+    if (this.tileLayer) this.map.removeLayer(this.tileLayer);
+
+    const CanvasLayer = L.GridLayer.extend({
+      options: {
+        pane: "overlayPane",
+        updateWhenZooming: false,
+        updateWhenIdle: true,
+        keepBuffer: 6
+      },
+      createTile: (coords: L.Coords, done: any) => {
+        const tile = document.createElement('canvas') as HTMLCanvasElement;
+        const size = 256;
+        const dpr = window.devicePixelRatio || 1;
+        tile.width = size * dpr; tile.height = size * dpr;
+        tile.style.width = `${size}px`; tile.style.height = `${size}px`;
+
+        setTimeout(() => {
+          this.drawTileCanvas(tile, coords);
+          done(null, tile);
+        }, 0);
+        
+        return tile;
+      }
+    });
+
+    this.tileLayer = new (CanvasLayer as any)().addTo(this.map);
   }
 
   setTileLayer(showLabels: boolean) {
-    if (!this.map) return;
     this.showLabels = showLabels;
-    const isDark = this.darkTiles;
-
-    if (this.tileLayer) this.map.removeLayer(this.tileLayer);
-
-    let url: string;
-    let attribution: string;
-
-    if (isDark) {
-      url = showLabels
-        ? "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}{r}.png";
-      attribution = "© OpenStreetMap contributors, © CARTO";
-    } else {
-      url = showLabels 
-        ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        : "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png";
-      attribution = showLabels
-        ? "© OpenStreetMap contributors"
-        : "© OpenStreetMap contributors, © CARTO";
-    }
-    
-    this.tileLayer = L.tileLayer(url, { attribution }).addTo(this.map);
-  }
-
-  updateTiles() {
     if (!this.map) return;
-    this.setTileLayer(this.showLabels);
+    this.map.eachLayer(l => { if (l instanceof L.TileLayer) this.map?.removeLayer(l); });
+
+    let url = "";
+    let attribution = "";
+
+    if (this.darkTiles) {
+      url = `https://{s}.basemaps.cartocdn.com/rastertiles/dark_${showLabels ? 'all' : 'nolabels'}/{z}/{x}/{y}{r}.png`;
+      attribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+    } else {
+      if (showLabels) {
+        url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+        attribution = '&copy; OpenStreetMap contributors';
+      } else {
+        url = "https://{s}.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}{r}.png";
+        attribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+      }
+    }
+
+    L.tileLayer(url, { attribution }).addTo(this.map);
   }
 
   setDarkTiles(dark: boolean) {
     this.darkTiles = dark;
-    this.updateTiles();
-    if (this.geoLayer && this.featureMap) {
-      this.reloadGeoJSON();
-    }
+    this.setTileLayer(this.showLabels);
+    this.tileLayer?.redraw(); 
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  loadGeoJSON(data: any) {
-    this.clearCurrentLayers();
-    const displayData = this.optimizeDataForPerformance(data);
+  setRegion(region: string) {
+    this.currentRegion = region || "All";
+    this.filteredIds.clear();
     
-    this.geoLayer = L.geoJSON(displayData, this.getGeoJsonOptions());
-    this.geoLayer.addTo(this.map!);
-  }
-
-  private selectLayer(layer: L.Layer) {
-    if (this.selectedLayer && this.geoLayer) {
-      if (this.selectedLayer instanceof L.CircleMarker) {
-        (this.selectedLayer as L.CircleMarker).setRadius(6);
-      }
-      this.geoLayer.resetStyle(this.selectedLayer as any);
-    }
-
-    this.selectedLayer = layer;
-    const colors = this.getThemeColors();
-
-    if (layer instanceof L.CircleMarker) {
-      (layer as L.CircleMarker).setStyle({
-        radius: 8,
-        color: colors.selectedColor,
-        weight: 3,
-        fillColor: colors.selectedColor,
-        fillOpacity: 0.8
-      });
-      layer.bringToFront(); // CircleMarkers can always safely come to the front
-    } else if ("setStyle" in layer) {
-      (layer as L.Path).setStyle({
-        color: colors.selectedColor,
-        fillOpacity: 0.75,
-        weight: 4
-      });
-      
-      // FIX: Don't bring selected polygons to the front either
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const isPolygon = (layer as any).feature?.geometry?.type?.includes('Polygon');
-      if (!isPolygon && typeof (layer as L.Path).bringToFront === 'function') {
-        (layer as L.Path).bringToFront();
-      }
-    }
-  }
-
-  setFeatureClickHandler(handler: FeatureClickHandler) {
-    this.onFeatureClick = handler
-  }
-
-  destroy() {
-    if (this.map) {
-      this.clearCurrentLayers();
-      this.map.remove()
-      this.map = undefined
-      this.geoLayer = undefined
-      this.selectedLayer = undefined
-      this.tileLayer = undefined
-    }
-  }
-
-  clearSelection() {
-    if (this.selectedLayer && this.geoLayer) {
-      this.geoLayer.resetStyle(this.selectedLayer as any);
-      this.selectedLayer = undefined;
-    }
-  }
-
-  highlightFeatureById(osmId: string, color: string = "#22c55e") {
-    if (!this.geoLayer) return;
-    this.geoLayer.eachLayer((layer: any) => {
-      if (layer.feature.properties['@id'] === osmId) {
-        if (layer instanceof L.CircleMarker) {
-          layer.setStyle({ radius: 8, color, weight: 3, opacity: 1, fillColor: color, fillOpacity: 0.8 });
-        } else if ("setStyle" in layer) {
-          layer.setStyle({ color, weight: 4, fillOpacity: 0.7, fillColor: color });
+    if (this.currentRegion === "All") {
+      for (const id of this.featureMap.keys()) this.filteredIds.add(id);
+    } else {
+      const propKeys = ["region", "oblast", "area", "admin", "regionName"];
+      for (const [id, f] of this.featureMap) {
+        const props = f.properties || {};
+        for (const k of propKeys) {
+          if (props[k]?.toString().toLowerCase() === this.currentRegion.toLowerCase()) {
+            this.filteredIds.add(id);
+            break;
+          }
         }
-        layer.bringToFront();
-      }
-    });
-  }
-
-  zoomToFeatureById(osmId: string) {
-    if (!this.map || !this.geoLayer) return;
-    this.geoLayer.eachLayer((layer: any) => {
-      if (layer.feature.properties['@id'] === osmId) {
-        let bounds: L.LatLngBounds;
-        if (layer instanceof L.CircleMarker) {
-          const latlng = layer.getLatLng();
-          bounds = L.latLngBounds(latlng, latlng);
-        } else if ("getBounds" in layer) {
-          bounds = (layer as L.Polygon).getBounds();
-        } else return;
-        
-        this.map?.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true, duration: 1.0 });
-      }
-    });
-  }
-
-  onThemeChange() {
-    this.updateTiles();
-    if (this.geoLayer && this.featureMap) {
-      const selectedId = this.selectedLayer && (this.selectedLayer as any).feature?.properties?.['@id'];
-      this.reloadGeoJSON();
-      if (selectedId !== undefined) {
-        this.geoLayer.eachLayer((layer: any) => {
-          if (layer.feature.properties['@id'] === selectedId) this.selectLayer(layer);
-        });
       }
     }
+    this.scheduleRedraw();
+  }
+
+  highlightFeatureById(id: string | number) {
+    this.highlightedFeatureId = id?.toString();
+    this.updateHighlightLayer();
+  }
+
+  zoomToFeatureById(id: string | number) {
+    const f = this.featureMap.get(id.toString());
+    if (f && this.map) this.map.fitBounds(L.geoJSON(f).getBounds(), { padding: [50, 50], maxZoom: 14 });
   }
 
   resetAllStyles() {
-    if (this.geoLayer) this.geoLayer.resetStyle();
+    this.selectedFeatureId = null; this.highlightedFeatureId = null; this.hoveredFeatureId = null;
+    this.updateHighlightLayer();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setRawData(data: any) {
-    const features = data.features || (Array.isArray(data) ? data : []);
-    this.featureMap = new Map();
+  renderFilteredFeatures(r: string) { this.setRegion(r); }
+
+  private findFeatureAt(lat: number, lng: number): GeoFeature | null {
+    if (!this.map) return null;
+    const cp = this.map.latLngToContainerPoint([lat, lng]);
     
-    features.forEach((f: any, index: number) => {
-      if (f.geometry !== null) {
-        const id = f.properties?.['@id'] || f.id || `gen-id-${index}`;
-        if (!f.properties['@id']) f.properties['@id'] = id;
-        this.featureMap!.set(id, f);
+    const nw = this.map.containerPointToLatLng(cp.subtract([15, 15]));
+    const se = this.map.containerPointToLatLng(cp.add([15, 15]));
+
+    const matches = this.spatialIndex.search({ 
+      minX: nw.lng, 
+      minY: se.lat, 
+      maxX: se.lng, 
+      maxY: nw.lat  
+    });
+    
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const f = matches[i].feature;
+      if (this.currentRegion !== "All" && !this.filteredIds.has(this.getFeatureId(f))) continue;
+
+      const geom = f.geometry;
+      
+      if (geom.type === "Point") {
+        const p = this.map.latLngToContainerPoint([(geom as any).coordinates[1], (geom as any).coordinates[0]]);
+        if (p.distanceTo(cp) <= 15) return f; 
+      }
+      
+      if (geom.type === "LineString" || geom.type === "MultiLineString") {
+        const coords = geom.type === "LineString" ? [(geom as any).coordinates] : (geom as any).coordinates;
+        for (const line of coords) {
+            if (this.pointNearLine(cp, line, this.map, 10)) return f;
+        }
+      }
+      
+      if (geom.type === "Polygon" && this.pointInPolygon([lng, lat], (geom as any).coordinates)) return f;
+      
+      if (geom.type === "MultiPolygon") {
+        for (const poly of (geom as any).coordinates) {
+          if (this.pointInPolygon([lng, lat], poly)) return f;
+        }
+      }
+    }
+    return null;
+  }
+
+  private pointNearLine(pt: L.Point, coords: any[], map: L.Map, threshold: number): boolean {
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p1 = map.latLngToContainerPoint([coords[i][1], coords[i][0]]);
+      const p2 = map.latLngToContainerPoint([coords[i+1][1], coords[i+1][0]]);
+      if (this.distToSegment(pt, p1, p2) <= threshold) return true;
+    }
+    return false;
+  }
+
+  private distToSegment(p: L.Point, a: L.Point, b: L.Point) {
+    const l2 = Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2);
+    if (l2 === 0) return p.distanceTo(a);
+    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return p.distanceTo(L.point(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)));
+  }
+
+  // OPTIMIZED: Fast AABB bounds checking and explicit hole handling
+  private pointInPolygon(pt: [number, number], rings: any[]): boolean {
+    const x = pt[0], y = pt[1];
+    let inside = false;
+
+    // First ring is always the exterior ring in valid GeoJSON
+    const exterior = rings[0];
+    if (!exterior || exterior.length === 0) return false;
+
+    // 1. Fast local bounding box check to avoid heavy math
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < exterior.length; i++) {
+      const px = exterior[i][0], py = exterior[i][1];
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+    if (x < minX || x > maxX || y < minY || y > maxY) return false;
+
+    // 2. Ray-casting for the exterior ring
+    for (let i = 0, j = exterior.length - 1; i < exterior.length; j = i++) {
+      const xi = exterior[i][0], yi = exterior[i][1];
+      const xj = exterior[j][0], yj = exterior[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+
+    // If it's not in the exterior, it's not in the polygon
+    if (!inside) return false;
+
+    // 3. Explicitly check holes (if inside a hole, it is NOT inside the feature)
+    for (let k = 1; k < rings.length; k++) {
+      const hole = rings[k];
+      let inHole = false;
+      for (let i = 0, j = hole.length - 1; i < hole.length; j = i++) {
+        const xi = hole[i][0], yi = hole[i][1];
+        const xj = hole[j][0], yj = hole[j][1];
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inHole = !inHole;
+      }
+      if (inHole) return false; 
+    }
+
+    return true;
+  }
+
+  private updateHighlightLayer() {
+    const stateKey = `${this.selectedFeatureId}-${this.highlightedFeatureId}-${this.hoveredFeatureId}`;
+    if ((this as any)._lastStateKey === stateKey) return;
+    (this as any)._lastStateKey = stateKey;
+
+    this.scheduleRedraw();
+  }
+
+  private scheduleRedraw() {
+    if (this.pendingRedraw) return;
+    this.pendingRedraw = true;
+    
+    requestAnimationFrame(() => { 
+      this.pendingRedraw = false; 
+      
+      if (!this.tileLayer) return;
+
+      const tiles = (this.tileLayer as any)._tiles;
+      
+      for (const key in tiles) {
+        const tile = tiles[key];
+        if (tile.el && tile.active) { 
+          this.drawTileCanvas(tile.el as HTMLCanvasElement, tile.coords);
+        }
       }
     });
   }
 
-  private reloadGeoJSON() {
-    if (!this.featureMap) return;
-    
-    const sortedFeatures = this.sortFeaturesByArea(Array.from(this.featureMap.values()));
-    const geoJSON = { type: "FeatureCollection" as const, features: sortedFeatures };
-    this.loadGeoJSON(geoJSON);
+  private readonly CUSTOM_ORDER = [
+    "Дунавска равнина",
+    "Предбалкан",
+  ];
+
+  public getUniqueRegions(): string[] {
+    const foundRegions = new Set<string>();
+    const propKeys = ["region", "oblast", "area", "admin", "regionName"];
+
+    this.featureMap.forEach(f => {
+      const props = f.properties || {};
+      for (const k of propKeys) {
+        if (props[k]) {
+          const val = props[k].toString().trim();
+          if (val && val.toLowerCase() !== "all") {
+            foundRegions.add(val);
+            break; 
+          }
+        }
+      }
+    });
+
+    const uniqueList = Array.from(foundRegions);
+
+    return uniqueList.sort((a, b) => {
+      const indexA = this.CUSTOM_ORDER.indexOf(a);
+      const indexB = this.CUSTOM_ORDER.indexOf(b);
+
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+
+      return a.localeCompare(b, 'bg');
+    });
   }
 
-  renderFilteredFeatures(region: string) {
-    if (!this.map || !this.featureMap) return;
-
-    const filteredFeatures = region === "All"
-      ? Array.from(this.featureMap.values())
-      : Array.from(this.featureMap.values()).filter(f => f.properties.region === region);
-
-    const sortedFeatures = this.sortFeaturesByArea(filteredFeatures);
-    const filteredData = { type: "FeatureCollection" as const, features: sortedFeatures };
-
-    this.clearCurrentLayers();
-    const displayData = this.optimizeDataForPerformance(filteredData);
-    this.geoLayer = L.geoJSON(displayData, this.getGeoJsonOptions());
-    this.geoLayer.addTo(this.map);
-  }
-
-  setSimplificationEnabled(enabled: boolean) {
-    this.useSimplifiedPolygons = enabled;
-    if (this.featureMap) this.reloadGeoJSON();
-  }
-
-  getSimplificationStats() {
-    if (!this.featureMap) return null;
-    const features = Array.from(this.featureMap.values());
-    const fullData = { type: "FeatureCollection" as const, features };
-    const simplified = this.optimizeDataForPerformance(fullData);
-    return polygonOptimizer.getSimplificationStats(fullData, simplified);
-  }
-
-  isSimplificationEnabled(): boolean {
-    return this.useSimplifiedPolygons;
+  destroy() { 
+    this.map?.remove(); 
+    this.map = undefined; 
   }
 }
 
-export const mapService = new MapService()
+export const mapService = new MapService();

@@ -9,7 +9,8 @@ export interface GeoFeatureProps {
   description?: string
   aliases?: string[]
   centroid?: [number, number]
-  "@id"?: string
+  "@id"?: string,
+  [key:string]: any,
 }
 
 export type GeoFeature = Feature<Geometry, GeoFeatureProps>

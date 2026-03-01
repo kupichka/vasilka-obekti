@@ -1,3 +1,4 @@
+// App.tsx
 import { useState, useEffect, useCallback } from "react"
 import MapView from "./components/MapView"
 import InfoPanel from "./components/InfoPanel"
@@ -5,7 +6,7 @@ import { quizEngine } from "./services/quizEngine"
 import { mapService } from "./services/mapService"
 import type { GeoFeature } from "./types/geo"
 import "./stylized.css"
-import rawData from "./data/objects2.json";
+import rawData from "./data/objects2_cleaned.json";
 
 export default function App() {
   const [mode, setMode] = useState<"learn" | "quiz">("learn")
@@ -15,18 +16,19 @@ export default function App() {
   const [isSpoiled, setIsSpoiled] = useState(false)
   const [feedback, setFeedback] = useState<{ msg: string; type: "success" | "error" } | null>(null)
   const [regionList, setRegionList] = useState<string[]>(["All"])
+  const [currentRegion, setCurrentRegion] = useState<string>("All")
   const [showLabels, setShowLabels] = useState(true)
   const [darkTiles, setDarkTiles] = useState(true)
 
+  // initial data load for quizEngine and mapService
   useEffect(() => {
     const loadData = async () => {
       try {
-//        const response = await fetch("/objects2.json")
-//        const data = await response.json()
         quizEngine.setFeatures(rawData)
         mapService.setRawData(rawData)
-        // mapService.loadGeoJSON(rawData) // uh this line is shady, idk if I like it 
-        setRegionList(quizEngine.getAvailableRegions())
+        const available = quizEngine.getAvailableRegions()
+        setRegionList(available.length ? ["All", ...available] : ["All"])
+        setCurrentRegion("All")
       } catch (error) {
         console.error("Failed to load data:", error)
       }
@@ -34,13 +36,25 @@ export default function App() {
     loadData()
   }, [])
 
+  // keep mapService tile options in sync when toggles change
+  useEffect(() => {
+    // set tile layer / tiles theme if map already initialized
+    mapService.setDarkTiles(darkTiles)
+  }, [darkTiles])
+
+  useEffect(() => {
+    mapService.setTileLayer(showLabels)
+  }, [showLabels])
+
+  // toast helper
   const showToast = useCallback((msg: string, type: "success" | "error") => {
     setFeedback({ msg, type })
     setTimeout(() => setFeedback(null), 2500)
   }, [])
 
+  // start a new quiz question
   const startNewQuestion = useCallback(() => {
-    if (quizEngine.getPoolSize() === 0) quizEngine.setRegion("All"); 
+    if (quizEngine.getPoolSize() === 0) quizEngine.setRegion(currentRegion || "All");
     const next = quizEngine.getNextQuestion();
     if (next) {
       setTarget(next);
@@ -50,8 +64,9 @@ export default function App() {
     } else {
       showToast("Няма намерени обекти!", "error");
     }
-  }, [showToast]);
+  }, [currentRegion, showToast]);
 
+  // feature selection handler (called by MapView -> mapService)
   const handleSelect = useCallback((feature: GeoFeature) => {
     setSelected(feature)
     if (mode === "quiz" && target) {
@@ -70,15 +85,21 @@ export default function App() {
     }
   }, [mode, target, isSpoiled, startNewQuestion, showToast])
 
+  // show hint / reveal target feature
   const handleShowHint = () => {
     if (target?.properties['@id']) {
       setIsSpoiled(true)
-      mapService.highlightFeatureById(target.properties['@id'], "#22c55e")
+      // highlight and zoom
+      mapService.highlightFeatureById(target.properties['@id'])
       mapService.zoomToFeatureById(target.properties['@id'])
+      // mark as given up in quiz engine (optional: you already handle this on correct click when spoiled)
+      quizEngine.handleGiveUp(target)
     }
   }
 
+  // region change from dropdowns
   const handleRegionChange = (region: string) => {
+    setCurrentRegion(region)
     quizEngine.setRegion(region);
     mapService.renderFilteredFeatures(region);
     if (mode === "quiz") startNewQuestion();
@@ -86,8 +107,6 @@ export default function App() {
 
   return (
     <div className="h-full w-full relative overflow-hidden stylized" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      
-      {/* Toast Notification - Smaller text on mobile */}
       {feedback && (
         <div className={`absolute top-24 left-1/2 -translate-x-1/2 z-[2000] px-6 py-2 rounded-full shadow-2xl transition-all animate-bounce text-white font-bold text-center max-md:text-[10px] max-md:px-4 ${
           feedback.type === "success" ? "bg-green-500" : "bg-red-500"
@@ -96,8 +115,6 @@ export default function App() {
         </div>
       )}
 
-      {/* --- HEADER CONTROLS --- */}
-      {/* Desktop: Original classes. Mobile: Remove background/borders via the CSS class you have */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg">
         <div className="flex p-1">
           <button 
@@ -117,53 +134,55 @@ export default function App() {
         {mode === "quiz" && <div className="pr-4 font-mono font-bold text-slate-700 max-md:hidden">Точки: {score}</div>}
       </div>
 
-      {/* --- DESKTOP REGION SELECTOR (Original) --- */}
+      {/* DESKTOP REGION SELECTOR */}
       <div className="max-md:hidden absolute top-4 right-4 z-[1000] bg-white p-2 rounded-xl shadow-lg border border-slate-200">
         <label className="text-xs font-bold text-slate-400 block mb-1 px-1 tracking-tighter uppercase">ИЗБЕРИ ОБЛАСТ</label>
-        <select onChange={(e) => handleRegionChange(e.target.value)} className="bg-slate-50 border-none text-sm font-bold text-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer">
+        <select
+          value={currentRegion}
+          onChange={(e) => handleRegionChange(e.target.value)}
+          className="bg-slate-50 border-none text-sm font-bold text-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        >
           {regionList.map(region => <option key={region} value={region}>{region}</option>)}
         </select>
       </div>
 
-      {/* --- DESKTOP SETTINGS (Original) --- */}
+      {/* DESKTOP SETTINGS */}
       <div className="max-md:hidden absolute bottom-5 right-1 z-[1000] bg-white p-3 rounded-xl shadow-lg border border-slate-200 flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
-          <input type="checkbox" id="showLabels" checked={showLabels} onChange={(e) => { setShowLabels(e.target.checked); mapService.setTileLayer(e.target.checked); }} className="cursor-pointer w-4 h-4" />
+          <input type="checkbox" id="showLabels" checked={showLabels} onChange={(e) => { setShowLabels(e.target.checked); }} className="cursor-pointer w-4 h-4" />
           <label htmlFor="showLabels" className="text-xs font-bold text-slate-700 cursor-pointer">Наименования</label>
         </div>
         <div className="flex items-center gap-2">
-          <input type="checkbox" id="darkTiles" checked={darkTiles} onChange={(e) => { setDarkTiles(e.target.checked); mapService.setDarkTiles(e.target.checked); }} className="cursor-pointer w-4 h-4" />
+          <input type="checkbox" id="darkTiles" checked={darkTiles} onChange={(e) => { setDarkTiles(e.target.checked); }} className="cursor-pointer w-4 h-4" />
           <label htmlFor="darkTiles" className="text-xs font-bold text-slate-700 cursor-pointer">Тъмна карта</label>
         </div>
       </div>
 
-      {/* --- MOBILE CONSOLIDATED BOTTOM BAR --- */}
+      {/* MOBILE BOTTOM BAR */}
       <div className="md:hidden absolute bottom-0 left-0 w-full z-[1000] bg-[#281e3f] border-t-2 border-[#3a2444] px-2 py-2 flex items-center justify-between gap-1">
         <select 
-          onChange={(e) => handleRegionChange(e.target.value)} 
-          /* Use flex-1 so the select fills the remaining space instead of forcing 50% */
+          value={currentRegion}
+          onChange={(e) => handleRegionChange(e.target.value)}
           className="bg-[#140e1e] text-[11px] font-normal p-2 border border-[#3a2444] flex-1 min-w-0 text-[#ffecd6]"
         >
           {regionList.map(region => <option key={region} value={region}>{region}</option>)}
         </select>
 
-        {/* shrink-0 ensures the labels don't wrap to a second line */}
         <div className="flex shrink-0 items-center gap-2 justify-end pl-1">
           <div className="flex items-center gap-1">
-            <input type="checkbox" id="m-labels" checked={showLabels} onChange={(e) => {setShowLabels(e.target.checked); mapService.setTileLayer(e.target.checked)}} className="w-3.5 h-3.5" />
+            <input type="checkbox" id="m-labels" checked={showLabels} onChange={(e) => {setShowLabels(e.target.checked)}} className="w-3.5 h-3.5" />
             <label htmlFor="m-labels" className="text-[9px] font-bold uppercase tracking-tighter whitespace-nowrap">Наименования</label>
           </div>
           <div className="flex items-center gap-1">
-            <input type="checkbox" id="m-dark" checked={darkTiles} onChange={(e) => {setDarkTiles(e.target.checked); mapService.setDarkTiles(e.target.checked)}} className="w-3.5 h-3.5" />
+            <input type="checkbox" id="m-dark" checked={darkTiles} onChange={(e) => {setDarkTiles(e.target.checked)}} className="w-3.5 h-3.5" />
             <label htmlFor="m-dark" className="text-[9px] font-bold uppercase tracking-tighter whitespace-nowrap">Тъмно</label>
           </div>
         </div>
       </div>
 
-      {/* --- QUIZ PROMPTS --- */}
+      {/* QUIZ PROMPTS */}
       {mode === "quiz" && target && (
         <>
-          {/* Desktop Version: Original Bulky Card */}
           <div className="max-md:hidden absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs">
             <div className="bg-white px-8 py-4 rounded-2xl border-b-4 border-orange-400 shadow-2xl text-center w-full">
               <p className="text-sm uppercase tracking-widest text-slate-400 font-bold">Намери обекта:</p>
@@ -172,7 +191,6 @@ export default function App() {
             <button onClick={handleShowHint} className="bg-slate-800 text-white text-xs px-4 py-1.5 rounded-full hover:bg-slate-700 transition-colors uppercase tracking-tighter">Покажи (без точка)</button>
           </div>
 
-          {/* Mobile Version: One-Line Optimized */}
           <div className="md:hidden absolute top-20 left-1/2 -translate-x-1/2 z-[1000] w-[95%]">
              <div className="bg-[#281e3f] p-2 border-b-2 border-[#a24e53] flex items-center justify-between gap-2 shadow-2xl">
                 <span className="text-sm font-black truncate">{target.properties.name}</span>
@@ -187,7 +205,6 @@ export default function App() {
 
       <MapView onFeatureSelect={handleSelect} />
       
-      {/* InfoPanel with bottom margin fix */}
       <div className="info-panel-mobile-container">
         <InfoPanel feature={selected} />
       </div>
