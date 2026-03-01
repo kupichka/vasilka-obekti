@@ -99,7 +99,12 @@ class MapService {
       const stableId = existingId ? existingId.toString() : `feat-${index}`;
       
       (f as any)._id = stableId;
-      if (!f.properties) f.properties = {};
+      // 1. Cast to 'any' or 'GeoFeatureProps' to bypass the strict check for the initial assignment
+      if (!f.properties) {
+        f.properties = {} as any; 
+      }
+
+      // 2. Now you can safely inject your internal ID
       f.properties.__id = stableId;
 
       this.featureMap.set(stableId, f);
