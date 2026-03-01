@@ -88,7 +88,8 @@ class MapService {
     });
   }
 
-  setRawData(data: any) {
+  setRawData(rawData: any) {
+    const data = JSON.parse(JSON.stringify(rawData));
     const features = data.features || [];
     this.featureMap.clear();
     this.spatialIndex.clear();
