@@ -1,9 +1,10 @@
 // mapService.ts
 import L from "leaflet";
-import geojsonvt from "geojson-vt";
+import geojsonvtModule from "geojson-vt";
 import RBush from "rbush";
 import type { GeoFeature } from "../types/geo";
 
+const geojsonvt = (geojsonvtModule as any).default || geojsonvtModule;
 interface SpatialItem {
   minX: number; minY: number; maxX: number; maxY: number;
   feature: GeoFeature;
@@ -88,47 +89,55 @@ class MapService {
     });
   }
 
+  private isReady=false;
+
   setRawData(rawData: any) {
-    const data = JSON.parse(JSON.stringify(rawData));
-    const features = data.features || [];
-    this.featureMap.clear();
-    this.spatialIndex.clear();
-    const items: SpatialItem[] = [];
+    try{
+      const data = JSON.parse(JSON.stringify(rawData));
+      const features = data.features || [];
+      this.featureMap.clear();
+      this.spatialIndex.clear();
+      const items: SpatialItem[] = [];
 
-    features.forEach((f: GeoFeature, index: number) => {
-      const existingId = f.properties?.['@id'] || f.id;
-      const stableId = existingId ? existingId.toString() : `feat-${index}`;
-      
-      (f as any)._id = stableId;
-      // 1. Cast to 'any' or 'GeoFeatureProps' to bypass the strict check for the initial assignment
-      if (!f.properties) {
-        f.properties = {} as any; 
-      }
+      features.forEach((f: GeoFeature, index: number) => {
+        const existingId = f.properties?.['@id'] || f.id;
+        const stableId = existingId ? existingId.toString() : `feat-${index}`;
+        
+        (f as any)._id = stableId;
+        // 1. Cast to 'any' or 'GeoFeatureProps' to bypass the strict check for the initial assignment
+        if (!f.properties) {
+          f.properties = {} as any; 
+        }
 
-      // 2. Now you can safely inject your internal ID
-      f.properties.__id = stableId;
+        // 2. Now you can safely inject your internal ID
+        f.properties.__id = stableId;
 
-      this.featureMap.set(stableId, f);
+        this.featureMap.set(stableId, f);
 
-      const tempLayer = L.geoJSON(f);
-      const bounds = tempLayer.getBounds();
-      if (bounds.isValid()) {
-        items.push({ 
-          minX: bounds.getWest(), 
-          minY: bounds.getSouth(), 
-          maxX: bounds.getEast(), 
-          maxY: bounds.getNorth(), 
-          feature: f 
-        });
-      }
-    });
+        const tempLayer = L.geoJSON(f);
+        const bounds = tempLayer.getBounds();
+        if (bounds.isValid()) {
+          items.push({ 
+            minX: bounds.getWest(), 
+            minY: bounds.getSouth(), 
+            maxX: bounds.getEast(), 
+            maxY: bounds.getNorth(), 
+            feature: f 
+          });
+        }
+      });
 
-    this.spatialIndex.load(items);
-    this.tileIndex = geojsonvt(data, { maxZoom: 18, tolerance: 5, extent: 4096, buffer: 128 });
-    this.setRegion("All");
+      this.spatialIndex.load(items);
+      this.tileIndex = geojsonvt(data, { maxZoom: 18, tolerance: 5, extent: 4096, buffer: 128 });
+      this.setRegion("All");
+      this.isReady = true;
+    } catch (e){
+      console.error("Critical error indexing GeoJSON:", e);
+    } 
   }
 
   private drawTileCanvas(canvas: HTMLCanvasElement, coords: L.Coords) {
+    if (!this.isReady || !this.tileIndex) return;
     const size = 256;
     const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d')!;
@@ -215,8 +224,9 @@ class MapService {
     const activeFeatures: any[] = [];
 
     for (const feature of vtTile.features) {
-      const vid = feature.tags?.['@id']?.toString() || feature.id?.toString();
-      if (this.currentRegion !== "All" && vid && !this.filteredIds.has(vid)) continue;
+      const vid = feature.tags?.['@id']?.toString() || feature.id?.toString() || feature.tags?.__id?.toString();
+      const isFiltered = this.currentRegion !== "All" && (!vid || !this.filteredIds.has(vid));
+      if (isFiltered) continue;
 
       const isSelected = vid === this.selectedFeatureId;
       const isHighlighted = vid === this.highlightedFeatureId;
