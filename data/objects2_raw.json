@@ -285674,42 +285674,8 @@
 				"@id": "relation/660931",
 				"alt_name": "Μεστα",
 				"region": "Пирин",
-				"alt_name:bg": "Места",
-				"alt_name:de": "Mesta",
-				"alt_name:el": "Μεστα",
-				"alt_name:en": "Mesta",
-				"alt_name:fr": "Nestos",
 				"int_name": "Nestos",
 				"name": "река Места",
-				"name:bg": "Места",
-				"name:cs": "Mesta",
-				"name:de": "Nestos",
-				"name:el": "Νέστος",
-				"name:en": "Nestos",
-				"name:es": "Mesta",
-				"name:fr": "Mesta",
-				"name:grc": "Νέστος",
-				"name:hr": "Mesta",
-				"name:hu": "Meszta",
-				"name:it": "Mesta",
-				"name:ja": "メスタ川",
-				"name:ka": "მესტა",
-				"name:kk": "Места",
-				"name:lt": "Mesta",
-				"name:mk": "Места",
-				"name:nl": "Mesta",
-				"name:nn": "Mesta",
-				"name:pl": "Mesta",
-				"name:pt": "Nesto",
-				"name:ro": "Nestos",
-				"name:ru": "Места",
-				"name:sh": "Mesta",
-				"name:sr": "Нестос",
-				"name:sv": "Mesta",
-				"name:tr": "Mesta Karasu Nehri",
-				"name:uk": "Места",
-				"name:vi": "Nestos",
-				"name:zh": "奈斯托斯河",
 				"type": "waterway",
 				"waterway": "river",
 				"wikidata": "Q193904",
@@ -370755,21 +370721,6 @@
 				"coordinates": [
 					22.789764,
 					43.958225
-				]
-			}
-		},
-		{
-			"type": "Feature",
-			"properties": {
-				"name": "Провадийско плато",
-				"region": "Дунавска равнина",
-				"natural": "plain"
-			},
-			"geometry": {
-				"type": "Point",
-				"coordinates": [
-					27.133,
-					43.202
 				]
 			}
 		},
