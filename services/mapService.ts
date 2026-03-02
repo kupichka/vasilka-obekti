@@ -51,7 +51,7 @@ class MapService {
     this.logEnter("getThemeColors");
     return {
       primary: this.darkTiles ? "#60a5fa" : "#2563eb",
-      fill: "rgba(59, 130, 246, 0.15)",
+      fill: "rgba(59, 130, 246, 0.35)",
       outline: this.darkTiles ? "rgba(96, 165, 250, 0.6)" : "rgba(37, 99, 235, 0.6)",
       highlight: "#22c55e",
       selected: "#f97316",
@@ -183,7 +183,7 @@ class MapService {
 
     // TILE SEAMS FIX: Strict clipping mask
     ctx.beginPath();
-    ctx.rect(0, 0, size, size);
+    ctx.rect(-0.5, -0.5, size + 1, size + 1);
     ctx.clip();
 
     ctx.lineJoin = 'round'; 
@@ -568,6 +568,45 @@ class MapService {
 
       return a.localeCompare(b, 'bg');
     });
+  }
+
+  public flyToRegion(region: string) {
+    this.logEnter("flyToRegion");
+    if (!this.map || this.featureMap.size === 0) return;
+
+    if (region === "All") {
+      // Default view for the whole dataset (Bulgaria coordinates)
+      this.map.flyTo([42.7339, 25.4858], 7, { duration: 1.5 });
+      return;
+    }
+
+    const bounds = L.latLngBounds([]);
+    const propKeys = ["region", "oblast", "area", "admin", "regionName"];
+
+    this.featureMap.forEach((f) => {
+      const props = f.properties || {};
+      let match = false;
+      for (const k of propKeys) {
+        if (props[k]?.toString().toLowerCase() === region.toLowerCase()) {
+          match = true;
+          break;
+        }
+      }
+
+      if (match) {
+        // Use Leaflet's geoJSON helper to get bounds of individual features
+        const layer = L.geoJSON(f);
+        bounds.extend(layer.getBounds());
+      }
+    });
+
+    if (bounds.isValid()) {
+      this.map.flyToBounds(bounds, { 
+        padding: [40, 40], 
+        duration: 1.5,
+        maxZoom: 12 // Prevent zooming in too deep on tiny regions
+      });
+    }
   }
 
   destroy() { 

@@ -31,7 +31,7 @@ export default function App() {
         
         // 2. Set UI states
         const available = quizEngine.getAvailableRegions();
-        setRegionList(available.length ? ["All", ...available] : ["All"]);
+        setRegionList(available);
         
         // 3. THE KEY: Signal that the service is ready
         setIsDataReady(true); 
@@ -108,6 +108,7 @@ export default function App() {
     setCurrentRegion(region)
     quizEngine.setRegion(region);
     mapService.renderFilteredFeatures(region);
+    mapService.flyToRegion(region);
     if (mode === "quiz") startNewQuestion();
   };
 
