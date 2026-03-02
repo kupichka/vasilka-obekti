@@ -152,7 +152,7 @@ class MapService {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-    console.log("REQUESTING TILE AT Z:", h.z);
+    console.log("REQUESTING TILE AT Z:", coords.z);
     const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
     if (!vtTile) {
       console.log("exiting the drawTileCanvas function... at point BAAA");
