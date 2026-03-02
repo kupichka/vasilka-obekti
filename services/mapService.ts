@@ -154,7 +154,7 @@ class MapService {
 
     const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
     if (!vtTile) {
-      console.log("exiting the drawTileCanvas function... at point B");
+      console.log("exiting the drawTileCanvas function... at point BAAA");
       ctx.restore();
       return;
     }
