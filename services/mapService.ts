@@ -138,7 +138,12 @@ class MapService {
 
   private drawTileCanvas(canvas: HTMLCanvasElement, coords: L.Coords) {
 
-    if (!this.isReady || !this.tileIndex) return;
+    if (!this.isReady || !this.tileIndex){
+      console.log("Exiting the drawTileCanvas function...");
+      console.log(!this.isReady);
+      console.log(!this.tileIndex);
+      return;
+    }
     const size = 256;
     const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d')!;
