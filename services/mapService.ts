@@ -139,8 +139,6 @@ class MapService {
   private drawTileCanvas(canvas: HTMLCanvasElement, coords: L.Coords) {
 
     if (!this.isReady || !this.tileIndex) return;
-    console.log("Haiii");
-    console.log(vtTile.features[0]);
     const size = 256;
     const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d')!;
@@ -155,6 +153,8 @@ class MapService {
       return;
     }
 
+    console.log("Haiii");
+    console.log(vtTile.features[0]);
     // TILE SEAMS FIX: Strict clipping mask
     ctx.beginPath();
     ctx.rect(0, 0, size, size);
