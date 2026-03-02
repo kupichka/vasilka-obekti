@@ -19,22 +19,28 @@ export default function App() {
   const [currentRegion, setCurrentRegion] = useState<string>("All")
   const [showLabels, setShowLabels] = useState(true)
   const [darkTiles, setDarkTiles] = useState(true)
+  const [isDataReady, setIsDataReady] = useState(false);
 
   // initial data load for quizEngine and mapService
   useEffect(() => {
     const loadData = async () => {
       try {
-        quizEngine.setFeatures(rawData)
-        mapService.setRawData(rawData)
-        const available = quizEngine.getAvailableRegions()
-        setRegionList(available.length ? ["All", ...available] : ["All"])
-        setCurrentRegion("All")
+        // 1. Feed the engines
+        quizEngine.setFeatures(rawData);
+        mapService.setRawData(rawData); 
+        
+        // 2. Set UI states
+        const available = quizEngine.getAvailableRegions();
+        setRegionList(available.length ? ["All", ...available] : ["All"]);
+        
+        // 3. THE KEY: Signal that the service is ready
+        setIsDataReady(true); 
       } catch (error) {
-        console.error("Failed to load data:", error)
+        console.error("Failed to load data:", error);
       }
-    }
-    loadData()
-  }, [])
+    };
+    loadData();
+  }, []);
 
   // keep mapService tile options in sync when toggles change
   useEffect(() => {
@@ -203,8 +209,14 @@ export default function App() {
         </>
       )}
 
-      <MapView onFeatureSelect={handleSelect} />
-      
+      {/* <MapView onFeatureSelect={handleSelect} /> */ /* OLD CODE*/}
+      {/* Only mount MapView when data is actually indexed and ready */}
+      {isDataReady ? (
+        <MapView onFeatureSelect={handleSelect} />
+      ) : (
+        <div className="loading-screen">Preparing Geographic Data...</div>
+      )}
+
       <div className="info-panel-mobile-container">
         <InfoPanel feature={selected} />
       </div>

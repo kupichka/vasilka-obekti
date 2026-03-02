@@ -11,32 +11,19 @@ export default function MapView({ onFeatureSelect }: Props) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!mapRef.current) return;
 
-    const initMap = async () => {
-      try {
-        // 1. Setup Data & Indexing
-        // mapService.setRawData(geoData); // called from app.tsx now
-
-        // 2. Initialize Map
-        mapService.init(mapRef.current!, [42.7339, 25.4858], 7);
-
-        // 3. Load Vector Tiles
-        mapService.loadGeoJSON();
-
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Map initialization failed:", error);
-        setIsLoading(false);
-      }
-    }
+    const initMap = () => {
+      // These will now succeed every time because isDataReady is true
+      mapService.init(mapRef.current!, [42.7339, 25.4858], 7);
+      mapService.loadGeoJSON();
+      setIsLoading(false);
+    };
 
     initMap();
 
-    return () => {
-      mapService.destroy();
-    }
-  }, [])
+    return () => mapService.destroy();
+  }, []);
 
   // Update handler when it changes
   useEffect(() => {

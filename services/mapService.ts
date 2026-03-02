@@ -149,6 +149,11 @@ class MapService {
       this.tileIndex = geojsonvt(data, { maxZoom: 18, indexMaxZoom:18, tolerance: 5, extent: 4096, buffer: 128 });
       this.setRegion("All");
       this.isReady = true;
+
+      if (this.map && !this.tileLayer) {
+        console.log("Data arrived late, triggering loadGeoJSON now");
+        this.loadGeoJSON();
+      }
     } catch (e){
       console.error("Critical error indexing GeoJSON:", e);
       this.logExit("setRawData", "exception occured");
