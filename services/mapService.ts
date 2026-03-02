@@ -99,7 +99,7 @@ class MapService {
       this.spatialIndex.clear();
       const items: SpatialItem[] = [];
       console.log("RAW DATA:", rawData);
-      
+
       features.forEach((f: GeoFeature, index: number) => {
         const existingId = f.properties?.['@id'] || f.id;
         const stableId = existingId ? existingId.toString() : `feat-${index}`;
@@ -129,7 +129,7 @@ class MapService {
       });
 
       this.spatialIndex.load(items);
-      this.tileIndex = geojsonvt(data, { maxZoom: 18, tolerance: 5, extent: 4096, buffer: 128 });
+      this.tileIndex = geojsonvt(data, { maxZoom: 18, indexMaxZoom:18, tolerance: 5, extent: 4096, buffer: 128 });
       this.setRegion("All");
       this.isReady = true;
     } catch (e){
@@ -152,7 +152,7 @@ class MapService {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-
+    console.log("REQUESTING TILE AT Z:", h.z);
     const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
     if (!vtTile) {
       console.log("exiting the drawTileCanvas function... at point BAAA");
