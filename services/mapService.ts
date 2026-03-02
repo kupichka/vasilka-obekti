@@ -98,7 +98,8 @@ class MapService {
       this.featureMap.clear();
       this.spatialIndex.clear();
       const items: SpatialItem[] = [];
-
+      console.log("RAW DATA:", rawData);
+      
       features.forEach((f: GeoFeature, index: number) => {
         const existingId = f.properties?.['@id'] || f.id;
         const stableId = existingId ? existingId.toString() : `feat-${index}`;
