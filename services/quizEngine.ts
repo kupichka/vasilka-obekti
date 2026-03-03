@@ -1,4 +1,5 @@
 import type { GeoFeature } from "../types/geo";
+import * as topojson from "topojson-client";
 
 interface DeferredItem {
     featureId: string;
@@ -13,31 +14,41 @@ class QuizEngine {
     private deferredQueue: DeferredItem[] = [];
     private lastFeatureId: string | null = null;
 
-    setFeatures(data: any) {
-        let features = data.features || data;
+    setFeatures(topoData: any) {
         this.featureMap.clear();
         this.featuresByRegion.clear();
         
-        features.forEach((f: any, index: number) => {
-            if (!f.geometry) return;
+        // Track global index across layers to prevent collisions
+        let globalIndex = 0;
 
-            // Use the same fallback logic as MapService
-            const id = f.properties?.['@id'] || f.id || `gen-id-${index}`;
-            
-            // Ensure the feature itself has the ID for the MapService lookup
-            if (!f.properties['@id']) {
+        Object.keys(topoData.objects).forEach((layerName) => {
+            const data = topojson.feature(topoData, topoData.objects[layerName]) as any;
+            const features = data.type === "FeatureCollection" ? data.features : [data];
+
+            features.forEach((f: any) => {
+                if (!f.geometry) return;
+
+                // FIX: Use the exact same logic as MapService
+                // Use existing ID, or create a truly unique one including layer name
+                const id = f.properties?.['@id'] || f.id || `feat-${layerName}-${globalIndex}`;
+                
+                // Ensure both @id and __id are set so MapService and geojson-vt see them
+                if (!f.properties) f.properties = {};
                 f.properties['@id'] = id;
-            }
+                f.properties['__id'] = id; 
+                f._id = id; // Internal reference
 
-            this.featureMap.set(id, f);
-            
-            const region = f.properties.region || 'Unknown';
-            if (!this.featuresByRegion.has(region)) {
-                this.featuresByRegion.set(region, new Set());
-            }
-            this.featuresByRegion.get(region)!.add(id);
+                this.featureMap.set(id.toString(), f);
+                
+                const region = f.properties.region || 'Unknown';
+                if (!this.featuresByRegion.has(region)) {
+                    this.featuresByRegion.set(region, new Set());
+                }
+                this.featuresByRegion.get(region)!.add(id.toString());
+                
+                globalIndex++;
+            });
         });
-        
         this.currentPoolIds = new Set(this.featureMap.keys());
     }
 

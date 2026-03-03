@@ -429444,6 +429444,7 @@
 			"type": "Feature",
 			"properties": {
 				"name": "Лиса планина",
+				"region": "Предбалкан",
 				"natural": "mountain"
 			},
 			"geometry": {

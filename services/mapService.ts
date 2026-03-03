@@ -3,6 +3,7 @@ import L from "leaflet";
 import geojsonvtModule from "geojson-vt";
 import RBush from "rbush";
 import type { GeoFeature } from "../types/geo";
+import * as topojson from "topojson-client";
 
 const geojsonvt = (geojsonvtModule as any).default || geojsonvtModule;
 interface SpatialItem {
@@ -107,46 +108,60 @@ class MapService {
 
   private isReady=false;
 
-  setRawData(rawData: any) {
+  setRawData(topoData: any) {
     this.logEnter("setRawData");
-    try{
-      const data = JSON.parse(JSON.stringify(rawData));
-      const features = data.features || [];
+    try {
       this.featureMap.clear();
       this.spatialIndex.clear();
       const items: SpatialItem[] = [];
-      console.log("RAW DATA:", rawData);
+      const allFeatures: any[] = [];
+      
+      let globalIndex = 0;
 
-      features.forEach((f: GeoFeature, index: number) => {
-        const existingId = f.properties?.['@id'] || f.id;
-        const stableId = existingId ? existingId.toString() : `feat-${index}`;
-        
-        (f as any)._id = stableId;
-        // 1. Cast to 'any' or 'GeoFeatureProps' to bypass the strict check for the initial assignment
-        if (!f.properties) {
-          f.properties = {} as any; 
-        }
+      Object.keys(topoData.objects).forEach((layerName) => {
+          const data = topojson.feature(topoData, topoData.objects[layerName]) as any;
+          const layerFeatures = data.features || (data.geometry ? [data] : []);
 
-        // 2. Now you can safely inject your internal ID
-        f.properties.__id = stableId;
+          layerFeatures.forEach((f: GeoFeature) => {
+              // MATCHING LOGIC: Use the same ID generation as QuizEngine
+              const existingId = f.properties?.['@id'] || f.id;
+              const stableId = existingId ? existingId.toString() : `feat-${layerName}-${globalIndex}`;
+              
+              // Inject IDs everywhere to be safe
+              (f as any)._id = stableId;
+              if (!f.properties) f.properties = {} as any; 
+              f.properties['@id'] = stableId; // Sync with QuizEngine
+              f.properties.__id = stableId;  // For geojson-vt tags
 
-        this.featureMap.set(stableId, f);
+              this.featureMap.set(stableId, f);
+              allFeatures.push(f);
 
-        const tempLayer = L.geoJSON(f);
-        const bounds = tempLayer.getBounds();
-        if (bounds.isValid()) {
-          items.push({ 
-            minX: bounds.getWest(), 
-            minY: bounds.getSouth(), 
-            maxX: bounds.getEast(), 
-            maxY: bounds.getNorth(), 
-            feature: f 
+              const tempLayer = L.geoJSON(f);
+              const bounds = tempLayer.getBounds();
+              if (bounds.isValid()) {
+                  items.push({ 
+                      minX: bounds.getWest(), minY: bounds.getSouth(), 
+                      maxX: bounds.getEast(), maxY: bounds.getNorth(), 
+                      feature: f 
+                  });
+              }
+              globalIndex++;
           });
-        }
       });
-
+      
       this.spatialIndex.load(items);
-      this.tileIndex = geojsonvt(data, { maxZoom: 18, indexMaxZoom:18, tolerance: 5, extent: 4096, buffer: 128 });
+      const combinedGeoJSON = {
+        type: "FeatureCollection",
+        features: allFeatures
+      };
+
+      this.tileIndex = geojsonvt(combinedGeoJSON, { 
+        maxZoom: 18, 
+        indexMaxZoom: 18, 
+        tolerance: 5, 
+        extent: 4096, 
+        buffer: 128 
+      });
       this.setRegion("All");
       this.isReady = true;
 
