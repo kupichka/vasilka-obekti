@@ -18,7 +18,7 @@ export default function App() {
   const [regionList, setRegionList] = useState<string[]>(["All"])
   const [currentRegion, setCurrentRegion] = useState<string>("All")
   const [showLabels, setShowLabels] = useState(true)
-  const [darkTiles, setDarkTiles] = useState(true)
+  const [darkTiles, setDarkTiles] = useState(false)
   const [isDataReady, setIsDataReady] = useState(false);
 
   // initial data load for quizEngine and mapService
