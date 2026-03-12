@@ -15,7 +15,7 @@ export default function MapView({ onFeatureSelect }: Props) {
 
     const initMap = () => {
       // These will now succeed every time because isDataReady is true
-      mapService.init(mapRef.current!, [42.7339, 25.4858], 7);
+      mapService.init(mapRef.current!, [42.7339, 25.4858], 8);
       mapService.loadGeoJSON();
       setIsLoading(false);
     };

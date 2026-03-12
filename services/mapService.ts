@@ -70,7 +70,11 @@ class MapService {
       this.logExit("init", "map already initialized?");
       return;
     }
-    this.map = L.map(container, { center, zoom, minZoom: 5, maxZoom: 18 });
+    this.map = L.map(container, { center, zoom, minZoom: 7, maxZoom: 18, maxBounds: [
+      [40.4, 21.8],  // southwest
+      [44.8, 29.1]   // northeast
+    ],
+    maxBoundsViscosity: 0.6 });
     
     // Kept the pane just in case you add tooltips or other standard Leaflet overlays later
     if (!this.map.getPane('featurePane')) {
