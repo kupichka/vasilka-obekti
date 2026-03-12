@@ -70,11 +70,13 @@ class MapService {
       this.logExit("init", "map already initialized?");
       return;
     }
-    this.map = L.map(container, { center, zoom, minZoom: 7, maxZoom: 18, maxBounds: [
-      [40.4, 21.8],  // southwest
-      [44.8, 29.1]   // northeast
-    ],
-    maxBoundsViscosity: 0.6 });
+    this.map = L.map(container, { center, zoom, minZoom: 8, maxZoom: 18,
+      // maxBounds: [
+      //   [39.8, 20.5],  // southwest
+      //   [45.5, 30.2]   // northeast
+      // ],
+      // maxBoundsViscosity: 0.754
+    });
     
     // Kept the pane just in case you add tooltips or other standard Leaflet overlays later
     if (!this.map.getPane('featurePane')) {
@@ -595,7 +597,7 @@ class MapService {
 
     if (region === "All") {
       // Default view for the whole dataset (Bulgaria coordinates)
-      this.map.flyTo([42.7339, 25.4858], 7, { duration: 1.5 });
+      this.map.flyTo([42.7339, 25.4858], 8, { duration: 1.0 });
       return;
     }
 
@@ -621,7 +623,7 @@ class MapService {
 
     if (bounds.isValid()) {
       this.map.flyToBounds(bounds, { 
-        padding: [40, 40], 
+        padding: [0.4, 0.4], 
         duration: 1.5,
         maxZoom: 12 // Prevent zooming in too deep on tiny regions
       });
