@@ -70,7 +70,7 @@ class MapService {
       this.logExit("init", "map already initialized?");
       return;
     }
-    this.map = L.map(container, { center, zoom, minZoom: 8, maxZoom: 18,
+    this.map = L.map(container, { center, zoom, minZoom: 4, maxZoom: 18,
       // maxBounds: [
       //   [39.8, 20.5],  // southwest
       //   [45.5, 30.2]   // northeast
