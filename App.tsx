@@ -114,7 +114,9 @@ export default function App() {
       quizEngine.setRegion("All");
       mapService.renderFilteredFeatures("All");
       mapService.flyToRegion("All"); // Assuming you want a zoomed-out view of all villages
-    }else{
+    } else {
+      quizEngine.setFeatures(rawData);
+      mapService.setRawData(rawData);
       setCurrentRegion(region)
       quizEngine.setRegion(region);
       mapService.renderFilteredFeatures(region);
