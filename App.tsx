@@ -7,6 +7,7 @@ import { mapService } from "./services/mapService"
 import type { GeoFeature } from "./types/geo"
 import "./stylized.css"
 import rawData from "./data/objects2_cleaned.json";
+import villagesData from "./data/towns_cleaned.json"; // Add this
 
 export default function App() {
   const [mode, setMode] = useState<"learn" | "quiz">("learn")
@@ -31,7 +32,7 @@ export default function App() {
         
         // 2. Set UI states
         const available = quizEngine.getAvailableRegions();
-        setRegionList(available);
+        setRegionList([...available, "Села"]);
         
         // 3. THE KEY: Signal that the service is ready
         setIsDataReady(true); 
@@ -105,10 +106,20 @@ export default function App() {
 
   // region change from dropdowns
   const handleRegionChange = (region: string) => {
-    setCurrentRegion(region)
-    quizEngine.setRegion(region);
-    mapService.renderFilteredFeatures(region);
-    mapService.flyToRegion(region);
+    if (region === "Градове (257)") {
+      quizEngine.setFeatures(villagesData);
+      mapService.setRawData(villagesData);
+      
+      // We don't filter villages, we want to see all of them
+      quizEngine.setRegion("All");
+      mapService.renderFilteredFeatures("All");
+      mapService.flyToRegion("All"); // Assuming you want a zoomed-out view of all villages
+    }else{
+      setCurrentRegion(region)
+      quizEngine.setRegion(region);
+      mapService.renderFilteredFeatures(region);
+      mapService.flyToRegion(region);
+    }
     if (mode === "quiz") startNewQuestion();
   };
 
