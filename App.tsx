@@ -32,7 +32,7 @@ export default function App() {
         
         // 2. Set UI states
         const available = quizEngine.getAvailableRegions();
-        setRegionList([...available, "Села"]);
+        setRegionList([...available, "Градове (257)"]);
         
         // 3. THE KEY: Signal that the service is ready
         setIsDataReady(true); 
