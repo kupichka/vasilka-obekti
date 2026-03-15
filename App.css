@@ -5,6 +5,11 @@
   text-align: center;
 }
 
+html, body, #root {
+  background-color: #140e1e !important; 
+  /* This ensures that if the app is pulled/bounced, the void behind it is dark */
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
