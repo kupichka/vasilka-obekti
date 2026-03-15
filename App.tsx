@@ -117,6 +117,7 @@ export default function App() {
     } else {
       quizEngine.setFeatures(rawData);
       mapService.setRawData(rawData);
+      
       setCurrentRegion(region)
       quizEngine.setRegion(region);
       mapService.renderFilteredFeatures(region);

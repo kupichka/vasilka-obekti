@@ -70,11 +70,11 @@ class MapService {
       this.logExit("init", "map already initialized?");
       return;
     }
-    this.map = L.map(container, { center, zoom, minZoom: 4, maxZoom: 18,
-      // maxBounds: [
-      //   [39.8, 20.5],  // southwest
-      //   [45.5, 30.2]   // northeast
-      // ],
+    this.map = L.map(container, { center, zoom, minZoom: 5, maxZoom: 18,
+      maxBounds: [
+        [38.0, 19.0],  // southwest
+        [47.0, 31.0]   // northeast
+      ],
       // maxBoundsViscosity: 0.754
     });
     
@@ -129,19 +129,34 @@ class MapService {
           const layerFeatures = data.features || (data.geometry ? [data] : []);
 
           layerFeatures.forEach((f: GeoFeature) => {
-              // MATCHING LOGIC: Use the same ID generation as QuizEngine
               const existingId = f.properties?.['@id'] || f.id;
               const stableId = existingId ? existingId.toString() : `feat-${layerName}-${globalIndex}`;
-              
+
               // Inject IDs everywhere to be safe
               (f as any)._id = stableId;
-              if (!f.properties) f.properties = {} as any; 
-              f.properties['@id'] = stableId; // Sync with QuizEngine
-              f.properties.__id = stableId;  // For geojson-vt tags
+              if (!f.properties) f.properties = {} as any;
+              f.properties['@id'] = stableId; 
+              f.properties.__id = stableId;  
+
+              // FIX: Check if we've already seen this ID in a previous layer and merge regions
+              const existingFeature = this.featureMap.get(stableId);
+              if (existingFeature) {
+                  const existingRegions = existingFeature.properties.region || [];
+                  const newRegions = f.properties.region || [];
+                  
+                  // Normalize to arrays
+                  const arr1 = Array.isArray(existingRegions) ? existingRegions : [existingRegions];
+                  const arr2 = Array.isArray(newRegions) ? newRegions : [newRegions];
+                  
+                  // Merge and deduplicate
+                  existingFeature.properties.region = Array.from(new Set([...arr1, ...arr2]));
+            
+                  // 2. SKIP: We don't push to allFeatures or spatial index again
+                  return;
+              }
 
               this.featureMap.set(stableId, f);
               allFeatures.push(f);
-
               const tempLayer = L.geoJSON(f);
               const bounds = tempLayer.getBounds();
               if (bounds.isValid()) {
@@ -375,21 +390,30 @@ class MapService {
   setRegion(region: string) {
     this.currentRegion = region || "All";
     this.filteredIds.clear();
-    
+
     if (this.currentRegion === "All") {
       for (const id of this.featureMap.keys()) this.filteredIds.add(id);
     } else {
       const propKeys = ["region", "oblast", "area", "admin", "regionName"];
+      const target = this.currentRegion.toLowerCase().trim();
+
       for (const [id, f] of this.featureMap) {
         const props = f.properties || {};
+
         for (const k of propKeys) {
-          if (props[k]?.toString().toLowerCase() === this.currentRegion.toLowerCase()) {
+          const value = props[k];
+          if (!value) continue;
+
+          const values = Array.isArray(value) ? value : [value];
+
+          if (values.some(v => String(v).toLowerCase().trim() === target)) {
             this.filteredIds.add(id);
             break;
           }
         }
       }
     }
+
     this.scheduleRedraw();
   }
 
@@ -400,7 +424,7 @@ class MapService {
 
   zoomToFeatureById(id: string | number) {
     const f = this.featureMap.get(id.toString());
-    if (f && this.map) this.map.fitBounds(L.geoJSON(f).getBounds(), { padding: [50, 50], maxZoom: 14 });
+    if (f && this.map) this.map.fitBounds(L.geoJSON(f).getBounds(), { padding: [50, 50], maxZoom: 10 });
   }
 
   resetAllStyles() {
@@ -568,10 +592,22 @@ class MapService {
       const props = f.properties || {};
       for (const k of propKeys) {
         if (props[k]) {
-          const val = props[k].toString().trim();
-          if (val && val.toLowerCase() !== "all") {
-            foundRegions.add(val);
-            break; 
+          // 1. Normalize to an array
+          const values = Array.isArray(props[k]) ? props[k] : [props[k]];
+          let addedValidRegion = false;
+
+          // 2. Add each region individually
+          values.forEach(v => {
+            const val = String(v).trim();
+            if (val && val.toLowerCase() !== "all") {
+              foundRegions.add(val);
+              addedValidRegion = true;
+            }
+          });
+
+          // 3. If we found and added valid regions from this key, stop checking fallback keys
+          if (addedValidRegion) {
+             break; 
           }
         }
       }
@@ -607,15 +643,22 @@ class MapService {
     this.featureMap.forEach((f) => {
       const props = f.properties || {};
       let match = false;
+
       for (const k of propKeys) {
-        if (props[k]?.toString().toLowerCase() === region.toLowerCase()) {
+        const value = props[k];
+
+        if (Array.isArray(value)) {
+          if (value.some((r: string) => r.toLowerCase() === region.toLowerCase())) {
+            match = true;
+            break;
+          }
+        } else if (value?.toString().toLowerCase() === region.toLowerCase()) {
           match = true;
           break;
         }
       }
 
       if (match) {
-        // Use Leaflet's geoJSON helper to get bounds of individual features
         const layer = L.geoJSON(f);
         bounds.extend(layer.getBounds());
       }

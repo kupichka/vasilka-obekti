@@ -40,11 +40,15 @@ class QuizEngine {
 
                 this.featureMap.set(id.toString(), f);
                 
-                const region = f.properties.region || 'Unknown';
+                let regions = f.properties.region || 'Unknown';
+                if (!Array.isArray(regions)) regions = [regions];
+
+                regions.forEach((region: string) => {
                 if (!this.featuresByRegion.has(region)) {
                     this.featuresByRegion.set(region, new Set());
                 }
                 this.featuresByRegion.get(region)!.add(id.toString());
+                });
                 
                 globalIndex++;
             });
@@ -119,8 +123,8 @@ class QuizEngine {
     }
 
     handleGiveUp(feature: GeoFeature): void {
-        // Schedule feature to replay in 5-7 questions
-        const questionsDelay = Math.floor(Math.random() * 3) + 5; // Random between 5-7
+        // Schedule feature to replay in a few questions
+        const questionsDelay = Math.floor(Math.random() * 4) + 4;
         const featureId = feature.properties['@id'];
         if (!featureId) {
             // if we somehow don't have an id, skip deferring
@@ -152,7 +156,9 @@ class QuizEngine {
             "Рила",
             "Пирин",
             "Родопи",
-            "Черноморска"
+            "Черноморска",
+            "Градове (257)",
+            "Реки (25)"
         ];
 
         const regions = Array.from(this.featuresByRegion.keys())
