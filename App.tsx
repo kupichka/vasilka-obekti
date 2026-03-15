@@ -180,7 +180,7 @@ export default function App() {
       </div>
 
       {/* MOBILE BOTTOM BAR */}
-      <div className="md:hidden absolute bottom-0 left-0 w-full z-[1000] bg-[#281e3f] border-t-2 border-[#3a2444] px-2 py-2 flex items-center justify-between gap-1">
+      <div className="md:hidden absolute bottom-0 left-0 w-full z-[1000] bg-[#281e3f] border-t-2 border-[#3a2444] px-2 py-2 flex items-center justify-between gap-1 mobile-safe-bottom">
         <select 
           value={currentRegion}
           onChange={(e) => handleRegionChange(e.target.value)}
