@@ -7,7 +7,7 @@ import { mapService } from "./services/mapService"
 import type { GeoFeature } from "./types/geo"
 import "./stylized.css"
 import rawData from "./data/objects2_cleaned.json";
-import villagesData from "./data/towns_cleaned.json"; // Add this
+import villagesData from "./data/towns_cleaned.json";
 
 export default function App() {
   const [mode, setMode] = useState<"learn" | "quiz">("learn")
