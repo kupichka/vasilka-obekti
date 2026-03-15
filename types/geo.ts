@@ -4,7 +4,7 @@ export interface GeoFeatureProps {
   id: number
   name: string
   category: string
-  region?: string
+  region?: string | string[];
   difficulty?: number
   description?: string
   aliases?: string[]
