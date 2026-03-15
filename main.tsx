@@ -8,8 +8,20 @@ import L from "leaflet"
 import markerIcon from "leaflet/dist/images/marker-icon.png"
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png"
 import markerShadow from "leaflet/dist/images/marker-shadow.png"
+import { registerSW } from 'virtual:pwa-register';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
+
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (confirm('New content available. Reload?')) {
+      updateSW(true);
+    }
+  },
+  onOfflineReady() {
+    console.log('App is ready to work offline!');
+  },
+});
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,

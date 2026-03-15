@@ -377,7 +377,7 @@ class MapService {
       }
     }
 
-    L.tileLayer(url, { attribution }).addTo(this.map);
+    L.tileLayer(url, { attribution,/*, detectRetina: true */}).addTo(this.map);
     this.logExit("setTileLayer", "function end");
   }
 

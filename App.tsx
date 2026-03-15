@@ -157,7 +157,7 @@ export default function App() {
 
       {/* DESKTOP REGION SELECTOR */}
       <div className="max-md:hidden absolute top-4 right-4 z-[1000] bg-white p-2 rounded-xl shadow-lg border border-slate-200">
-        <label className="text-xs font-bold text-slate-400 block mb-1 px-1 tracking-tighter uppercase">ИЗБЕРИ ОБЛАСТ</label>
+        <label className="text-xs font-bold text-slate-400 block mb-1 px-1 tracking-tighter uppercase" aria-label="Избери област">ИЗБЕРИ ОБЛАСТ</label>
         <select
           value={currentRegion}
           onChange={(e) => handleRegionChange(e.target.value)}
