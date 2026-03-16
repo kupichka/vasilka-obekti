@@ -160,7 +160,8 @@ class QuizEngine {
             "Тракийско-Странджанска",
             "Черноморска",
             "Градове (257)",
-            "Реки (25)"
+            "Реки (25)",
+            "Защитени области (26)"
         ];
 
         const regions = Array.from(this.featuresByRegion.keys())
