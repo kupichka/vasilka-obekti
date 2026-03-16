@@ -126,6 +126,15 @@ export default function App() {
     if (mode === "quiz") startNewQuestion();
   };
 
+  function formatName(name: string) {
+    if (name === "Торфено бранище") {
+      return <>Торфено <i>брани</i>ще</>
+    } else if (name === "Резерват Бистришко бранище") {
+      return <>Резерват Бистришко <i>брани</i>ще</>
+    }
+    return name
+  }
+
   return (
     <div className="h-full w-full relative overflow-hidden stylized" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {feedback && (
@@ -152,11 +161,11 @@ export default function App() {
             Тест
           </button>
         </div>
-        {mode === "quiz" && <div className="pr-4 font-mono font-bold text-slate-700 max-md:hidden">Точки: {score}</div>}
+        {mode === "quiz" && <div className="pr-4 font-mono font-bold text-slate-700 desktop-only">Точки: {score}</div>}
       </div>
 
       {/* DESKTOP REGION SELECTOR */}
-      <div className="max-md:hidden absolute top-4 right-4 z-[1000] bg-white p-2 rounded-xl shadow-lg border border-slate-200">
+      <div className="desktop-only absolute top-4 right-4 z-[1000] bg-white p-2 rounded-xl shadow-lg border border-slate-200">
         <label className="text-xs font-bold text-slate-400 block mb-1 px-1 tracking-tighter uppercase" aria-label="Избери област">ИЗБЕРИ ОБЛАСТ</label>
         <select
           value={currentRegion}
@@ -168,7 +177,7 @@ export default function App() {
       </div>
 
       {/* DESKTOP SETTINGS */}
-      <div className="max-md:hidden absolute bottom-5 right-1 z-[1000] bg-white p-3 rounded-xl shadow-lg border border-slate-200 flex flex-col items-start gap-3">
+      <div className="desktop-only absolute bottom-5 right-1 z-[1000] bg-white p-3 rounded-xl shadow-lg border border-slate-200 flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <input type="checkbox" id="showLabels" checked={showLabels} onChange={(e) => { setShowLabels(e.target.checked); }} className="cursor-pointer w-4 h-4" />
           <label htmlFor="showLabels" className="text-xs font-bold text-slate-700 cursor-pointer">Наименования</label>
@@ -180,7 +189,7 @@ export default function App() {
       </div>
 
       {/* MOBILE BOTTOM BAR */}
-      <div className="md:hidden absolute bottom-0 left-0 w-full z-[1000] bg-[#281e3f] border-t-2 border-[#3a2444] px-2 py-2 flex items-center justify-between gap-1 mobile-safe-bottom">
+      <div className="mobile-only absolute bottom-0 left-0 w-full z-[1000] bg-[#281e3f] border-t-2 border-[#3a2444] px-2 py-2 flex items-center justify-between gap-1 mobile-safe-bottom">
         <select 
           value={currentRegion}
           onChange={(e) => handleRegionChange(e.target.value)}
@@ -204,17 +213,17 @@ export default function App() {
       {/* QUIZ PROMPTS */}
       {mode === "quiz" && target && (
         <>
-          <div className="max-md:hidden absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs">
+          <div className="desktop-only absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs">
             <div className="bg-white px-8 py-4 rounded-2xl border-b-4 border-orange-400 shadow-2xl text-center w-full">
               <p className="text-sm uppercase tracking-widest text-slate-400 font-bold">Намери обекта:</p>
-              <p className="text-2xl font-black text-slate-800">{target.properties.name}</p>
+              <p className="text-2xl font-black text-slate-800"> {formatName(target.properties.name)} </p>
             </div>
             <button onClick={handleShowHint} className="bg-slate-800 text-white text-xs px-4 py-1.5 rounded-full hover:bg-slate-700 transition-colors uppercase tracking-tighter">Покажи (без точка)</button>
           </div>
 
-          <div className="md:hidden absolute top-20 left-1/2 -translate-x-1/2 z-[1000] w-[95%]">
+          <div className="mobile-only absolute top-20 left-1/2 -translate-x-1/2 z-[1000] w-[95%]">
              <div className="bg-[#281e3f] p-2 border-b-2 border-[#a24e53] flex items-center justify-between gap-2 shadow-2xl">
-                <span className="text-sm font-black truncate">{target.properties.name}</span>
+                <span className="text-sm font-black truncate"> {formatName(target.properties.name)} </span>
                 <div className="flex items-center gap-2">
                    <span className="font-mono font-bold text-[10px] bg-black/40 px-1 py-0.5">Точки: {score}</span>
                    <button onClick={handleShowHint} className="bg-[#a24e53] text-[9px] px-2 py-1 uppercase font-bold border border-[#73374e]">Покажи</button>
