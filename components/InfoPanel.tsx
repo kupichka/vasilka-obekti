@@ -16,7 +16,7 @@ export default function InfoPanel({ feature }: Props) {
   const { name, category, region, description } = feature.properties
   const hiddenRegions = new Set([
     "Градове (257)",
-    "Реки (25)",
+    "Реки (32)",
     "Защитени области (27)"
   ])
 
