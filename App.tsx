@@ -1,5 +1,5 @@
 // App.tsx
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import MapView from "./components/MapView"
 import InfoPanel from "./components/InfoPanel"
 import { quizEngine } from "./services/quizEngine"
@@ -21,6 +21,7 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true)
   const [darkTiles, setDarkTiles] = useState(false)
   const [isDataReady, setIsDataReady] = useState(false);
+  const loadedDataType = useRef<"Objects" | "Cities">("Objects");
 
   // initial data load for quizEngine and mapService
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function App() {
         
         // 2. Set UI states
         const available = quizEngine.getAvailableRegions();
-        setRegionList([...available, "Градове (257)"]);
+        setRegionList(["Градове 1", "Градове 2", "Градове 3", "Градове 4", "Градове 5", "Градове 6", "Градове 7", "Градове (257)", ...available]);
         
         // 3. THE KEY: Signal that the service is ready
         setIsDataReady(true); 
@@ -106,23 +107,22 @@ export default function App() {
 
   // region change from dropdowns
   const handleRegionChange = (region: string) => {
-    if (region === "Градове (257)") {
+    const isCityRegion = region.startsWith("Градове");
+    const currentlyLoaded = loadedDataType.current;
+
+    if (isCityRegion && currentlyLoaded !== "Cities") {
+      loadedDataType.current = "Cities";
       quizEngine.setFeatures(villagesData);
       mapService.setRawData(villagesData);
-      
-      // We don't filter villages, we want to see all of them
-      quizEngine.setRegion("All");
-      mapService.renderFilteredFeatures("All");
-      mapService.flyToRegion("All"); // Assuming you want a zoomed-out view of all villages
-    } else {
+    } else if(!isCityRegion && currentlyLoaded !== "Objects") {
+      loadedDataType.current = "Objects";
       quizEngine.setFeatures(rawData);
       mapService.setRawData(rawData);
-      
-      setCurrentRegion(region)
-      quizEngine.setRegion(region);
-      mapService.renderFilteredFeatures(region);
-      mapService.flyToRegion(region);
     }
+    setCurrentRegion(region)
+    quizEngine.setRegion(region);
+    mapService.renderFilteredFeatures(region);
+    mapService.flyToRegion(region);
     if (mode === "quiz") startNewQuestion();
   };
 
