@@ -16,7 +16,7 @@ class MapService {
   private tileLayer?: L.GridLayer;
   private tileIndex: any;
   private spatialIndex = new RBush<SpatialItem>();
-  private onFeatureClick?: (feature: GeoFeature) => void;
+  private onFeatureClick?: (feature: GeoFeature | null) => void;
 
   private featureMap = new Map<string, GeoFeature>();
   private selectedFeatureId: string | null = null;
@@ -59,7 +59,7 @@ class MapService {
     };
   }
 
-  public setFeatureClickHandler(handler: (feature: GeoFeature) => void) {
+  public setFeatureClickHandler(handler: (feature: GeoFeature | null) => void) {
     this.logEnter("setFeatureClickHandler");
     this.onFeatureClick = handler;
   }

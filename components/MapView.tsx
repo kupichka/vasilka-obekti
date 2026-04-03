@@ -3,7 +3,7 @@ import { mapService } from "../services/mapService"
 import type { GeoFeature } from "../types/geo"
 
 interface Props {
-  onFeatureSelect: (feature: GeoFeature) => void
+  onFeatureSelect: (feature: GeoFeature | null) => void
 }
 
 export default function MapView({ onFeatureSelect }: Props) {
