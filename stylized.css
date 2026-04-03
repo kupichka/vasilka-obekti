@@ -157,12 +157,12 @@ html, body {
 }
 
 /* small responsive tweak */
-@media (max-width: 640px) {
+@media (max-width: 640px), (pointer: coarse) {
   .stylized .top-24 { top: 20px !important; }
 }
 
 /* Reduce InfoPanel padding on small screens */
-@media (max-width: 768px), (max-height: 500px) {
+@media (max-width: 790px), (pointer: coarse) {
   .info-panel-mobile-container > div {
     padding: 10px !important;
     max-height: 30vh; /* Don't let it take too much vertical space */
@@ -188,7 +188,7 @@ html, body {
 }
 
 /* --- MOBILE UI OPTIMIZATIONS --- */
-@media (max-width: 768px), (max-height: 500px) {
+@media (max-width: 790px), (pointer: coarse) {
   /* Remove container background for header on mobile */
   .stylized .header-toggle-container.mobile-no-bg {
     background-color: transparent !important;
@@ -274,7 +274,7 @@ html, body {
 }
 
 /* Also fix the InfoPanel so it doesn't get covered by the bottom bar */
-@media (max-width: 768px), (max-height: 500px) {
+@media (max-width: 790px), (pointer: coarse) {
   .info-panel-mobile-container > div {
     /* Height of the bottom bar + padding + safe area */
     margin-bottom: calc(50px + env(safe-area-inset-bottom)) !important;
@@ -297,15 +297,18 @@ html, body {
 }
 
 /* --- CUSTOM RESPONSIVE DISPLAY CLASSES --- */
-/* Hide these elements on small widths OR small heights (mobile/landscape) */
-@media (max-width: 768px), (max-height: 500px) {
+/* Touch devices (phones/tablets) */
+@media (max-width: 790px), (pointer: coarse) {
   .desktop-only {
     display: none !important;
   }
+
+  .mobile-only {
+    display: flex !important;
+  }
 }
 
-/* Hide these elements on large widths AND large heights (true desktop) */
-@media (min-width: 769px) and (min-height: 501px) {
+@media (min-width: 791px) and (pointer: fine) {
   .mobile-only {
     display: none !important;
   }

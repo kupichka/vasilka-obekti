@@ -138,31 +138,31 @@ export default function App() {
   return (
     <div className="h-full w-full relative overflow-hidden stylized" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {feedback && (
-        <div className={`absolute top-24 left-1/2 -translate-x-1/2 z-[2000] px-6 py-2 rounded-full shadow-2xl transition-all animate-bounce text-white font-bold text-center max-md:text-[10px] max-md:px-4 ${
+        <div className={`absolute top-28 left-2/3 -translate-x-1/2 z-[2000] px-2 py-2 rounded-full shadow-2xl transition-all motion-safe:md:animate-bounce text-white font-bold text-center max-md:text-[10px] max-md:px-4 ${
           feedback.type === "success" ? "bg-green-500" : "bg-red-500"
         }`}>
           {feedback.msg}
         </div>
       )}
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg transition-[width] duration-300 ease-in-out">
+      <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out`}>
         <div className="flex p-1">
           <button 
             onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
-            className={`px-6 py-2 rounded-lg mr-[30px] transition-all ${mode === "learn" ? "bg-white shadow text-blue-600 font-bold" : "text-slate-500"}`}
+            className={`px-6 py-2 rounded-lg mr-[30px] transition-all ${mode === "learn" ? "bg-white text-blue-600 font-bold" : "text-slate-500"}`}
           >
             Научи
           </button>
           <button 
             onClick={() => { setMode("quiz"); startNewQuestion(); }}
-            className={`px-6 py-2 rounded-lg transition-all ${mode === "quiz" ? "bg-white shadow text-orange-500 font-bold" : "text-slate-500"}`}
+            className={`px-6 py-2 rounded-lg transition-all ${mode === "quiz" ? "bg-white text-orange-500 font-bold" : "text-slate-500"}`}
           >
             Тест
           </button>
         </div>
         <div 
           className={`grid transition-all duration-300 ease-in-out desktop-only ${
-            mode === "quiz" ? "grid-cols-[1fr] opacity-100 ml-4" : "grid-cols-[0fr] opacity-0 ml-0"
+            mode === "quiz" ? "grid-cols-[1fr] opacity-100 ml-4" : "grid-cols-[0fr] opacity-0 ml-0 delay-200"
           }`}
         >
           <div className="overflow-hidden whitespace-nowrap font-mono font-bold text-slate-700 pr-4 ml-[4.5px]">
@@ -170,6 +170,57 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* QUIZ PROMPTS */}
+      <>
+        {/* DESKTOP */}
+        <div 
+          className={`desktop-only absolute top-24 left-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs transition-all duration-400 ease-out origin-top
+            ${mode === "quiz" && target 
+              ? "opacity-100 -translate-x-1/2 translate-y-0 pointer-events-auto delay-200" 
+              : "opacity-0 -translate-x-1/2 -translate-y-6 scale-95 pointer-events-none"
+            }`}
+        >
+          <div className="bg-white px-8 py-4 rounded-2xl border-b-4 shadow-2xl text-center w-full">
+            <p className="text-sm uppercase tracking-widest text-slate-400 font-bold">Намери обекта</p>
+            <p className="text-2xl font-black text-slate-800">
+              {target ? formatName(target.properties.name) : "..."}
+            </p>
+          </div>
+          <button 
+            onClick={handleShowHint} 
+            className="bg-slate-800 text-white text-xs px-4 py-1.5 rounded-full hover:bg-slate-700 transition-colors uppercase tracking-tighter"
+          >
+            Покажи (без точка)
+          </button>
+        </div>
+
+        {/* MOBILE */}
+        <div 
+          className={`mobile-only fixed top-20 left-1/2 w-[95%] z-[1000] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+            ${mode === "quiz" && target 
+              ? "opacity-100 -translate-x-1/2 pointer-events-auto" 
+              : "opacity-0 -translate-x-[150%] pointer-events-none"
+            }`}
+        >
+          <div className="bg-[#281e3f] w-full p-2 border-b-2 border-[#a24e53] flex items-center justify-between gap-2 shadow-2xl">
+            <span className="text-sm font-black truncate text-white"> 
+              {target ? formatName(target.properties.name) : "..."} 
+            </span>
+            <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-[10px] bg-black/40 px-1 py-0.5 text-white">
+                  Точки: {score}
+                </span>
+                <button 
+                  onClick={handleShowHint} 
+                  className="bg-[#a24e53] text-white text-[9px] px-2 py-1 uppercase font-bold border border-[#73374e] active:scale-95 transition-transform"
+                >
+                  Покажи
+                </button>
+            </div>
+          </div>
+        </div>
+      </>
 
       {/* DESKTOP REGION SELECTOR */}
       <div className="desktop-only absolute top-4 right-4 z-[1000] bg-white p-2 rounded-xl shadow-lg border border-slate-200">
@@ -216,29 +267,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      {/* QUIZ PROMPTS */}
-      {mode === "quiz" && target && (
-        <>
-          <div className="desktop-only absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs">
-            <div className="bg-white px-8 py-4 rounded-2xl border-b-4 shadow-2xl text-center w-full">
-              <p className="text-sm uppercase tracking-widest text-slate-400 font-bold">Намери обекта:</p>
-              <p className="text-2xl font-black text-slate-800"> {formatName(target.properties.name)} </p>
-            </div>
-            <button onClick={handleShowHint} className="bg-slate-800 text-white text-xs px-4 py-1.5 rounded-full hover:bg-slate-700 transition-colors uppercase tracking-tighter">Покажи (без точка)</button>
-          </div>
-
-          <div className="mobile-only absolute top-20 left-1/2 -translate-x-1/2 z-[1000] w-[95%]">
-             <div className="bg-[#281e3f] p-2 border-b-2 border-[#a24e53] flex items-center justify-between gap-2 shadow-2xl">
-                <span className="text-sm font-black truncate"> {formatName(target.properties.name)} </span>
-                <div className="flex items-center gap-2">
-                   <span className="font-mono font-bold text-[10px] bg-black/40 px-1 py-0.5">Точки: {score}</span>
-                   <button onClick={handleShowHint} className="bg-[#a24e53] text-[9px] px-2 py-1 uppercase font-bold border border-[#73374e]">Покажи</button>
-                </div>
-             </div>
-          </div>
-        </>
-      )}
 
       {/* <MapView onFeatureSelect={handleSelect} /> */ /* OLD CODE*/}
       {/* Only mount MapView when data is actually indexed and ready */}
