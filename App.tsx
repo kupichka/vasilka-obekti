@@ -161,7 +161,7 @@ export default function App() {
           </button>
         </div>
         <div 
-          className={`grid transition-all duration-300 ease-in-out ${
+          className={`grid transition-all duration-300 ease-in-out desktop-only ${
             mode === "quiz" ? "grid-cols-[1fr] opacity-100 ml-4" : "grid-cols-[0fr] opacity-0 ml-0"
           }`}
         >
