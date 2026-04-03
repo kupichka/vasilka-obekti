@@ -89,11 +89,9 @@ class MapService {
 
     this.map.on("click", (e: L.LeafletMouseEvent) => {
       const feature = this.findFeatureAt(e.latlng.lat, e.latlng.lng);
-      if (feature) {
-        this.selectedFeatureId = this.getFeatureId(feature);
-        this.onFeatureClick?.(feature);
-        this.updateHighlightLayer();
-      }
+      this.selectedFeatureId = feature ? this.getFeatureId(feature) : null;
+      this.onFeatureClick?.(feature);
+      this.updateHighlightLayer();
     });
 
     this.map.on("mousemove", (e: L.LeafletMouseEvent) => {

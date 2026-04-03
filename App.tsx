@@ -75,8 +75,11 @@ export default function App() {
   }, [currentRegion, showToast]);
 
   // feature selection handler (called by MapView -> mapService)
-  const handleSelect = useCallback((feature: GeoFeature) => {
+  const handleSelect = useCallback((feature: GeoFeature | null) => {
     setSelected(feature)
+    if(!feature){
+      return;
+    }
     if (mode === "quiz" && target) {
       if (feature.properties['@id'] === target.properties['@id']) {
         if (isSpoiled) {
