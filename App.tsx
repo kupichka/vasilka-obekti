@@ -145,12 +145,11 @@ export default function App() {
         </div>
       )}
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg transition-[width] duration-300 ease-in-out">
         <div className="flex p-1">
           <button 
             onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
-            style={{ marginRight: '30px' }}
-            className={`px-6 py-2 rounded-lg transition-all ${mode === "learn" ? "bg-white shadow text-blue-600 font-bold" : "text-slate-500"}`}
+            className={`px-6 py-2 rounded-lg mr-[30px] transition-all ${mode === "learn" ? "bg-white shadow text-blue-600 font-bold" : "text-slate-500"}`}
           >
             Научи
           </button>
@@ -161,7 +160,15 @@ export default function App() {
             Тест
           </button>
         </div>
-        {mode === "quiz" && <div className="pr-4 font-mono font-bold text-slate-700 desktop-only">Точки: {score}</div>}
+        <div 
+          className={`grid transition-all duration-300 ease-in-out ${
+            mode === "quiz" ? "grid-cols-[1fr] opacity-100 ml-4" : "grid-cols-[0fr] opacity-0 ml-0"
+          }`}
+        >
+          <div className="overflow-hidden whitespace-nowrap font-mono font-bold text-slate-700 pr-4 ml-[4.5px]">
+            Точки: {score}
+          </div>
+        </div>
       </div>
 
       {/* DESKTOP REGION SELECTOR */}
@@ -214,7 +221,7 @@ export default function App() {
       {mode === "quiz" && target && (
         <>
           <div className="desktop-only absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs">
-            <div className="bg-white px-8 py-4 rounded-2xl border-b-4 border-orange-400 shadow-2xl text-center w-full">
+            <div className="bg-white px-8 py-4 rounded-2xl border-b-4 shadow-2xl text-center w-full">
               <p className="text-sm uppercase tracking-widest text-slate-400 font-bold">Намери обекта:</p>
               <p className="text-2xl font-black text-slate-800"> {formatName(target.properties.name)} </p>
             </div>

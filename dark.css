@@ -50,7 +50,3 @@ button {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.shadow, [class*="shadow"] {
-  box-shadow: var(--card-shadow) !important;
-}
-

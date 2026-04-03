@@ -3,7 +3,7 @@
   --bg-primary: #211735;
   --bg-secondary: #281e3f;
   --panel-bg: #281e3f;
-  --panel-border-color: #3a2444;
+  --panel-border-color: #4e204c;
   --text-color: #ffecd6;
   --accent: #ffbd61;
   --muted-text: #bfa7d6;
@@ -48,7 +48,6 @@ html, body {
   border: 2px solid var(--panel-border-color) !important;
   padding: 6px !important;
   display: flex !important;
-  gap: 20px !important; /* increased distance between the two buttons */
   align-items: center !important;
 }
 
