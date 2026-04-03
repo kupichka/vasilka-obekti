@@ -447,33 +447,52 @@ class MapService {
       maxX: se.lng, 
       maxY: nw.lat  
     });
-    
-    for (let i = matches.length - 1; i >= 0; i--) {
-      const f = matches[i].feature;
+
+    // Define our priority tiers
+    const points: any[] = [];
+    const lines: any[] = [];
+    const polygons: any[] = [];
+
+    // 1. Categorize matches
+    for (const match of matches) {
+      const f = match.feature;
       if (this.currentRegion !== "All" && !this.filteredIds.has(this.getFeatureId(f))) continue;
 
+      const type = f.geometry.type;
+      if (type === "Point") points.push(f);
+      else if (type === "LineString" || type === "MultiLineString") lines.push(f);
+      else if (type === "Polygon" || type === "MultiPolygon") polygons.push(f);
+    }
+
+    // 2. Check Points first
+    for (const f of points) {
       const geom = f.geometry;
-      
-      if (geom.type === "Point") {
-        const p = this.map.latLngToContainerPoint([(geom as any).coordinates[1], (geom as any).coordinates[0]]);
-        if (p.distanceTo(cp) <= 15) return f; 
+      const p = this.map.latLngToContainerPoint([(geom as any).coordinates[1], (geom as any).coordinates[0]]);
+      if (p.distanceTo(cp) <= 15) return f;
+    }
+
+    // 3. Check Lines second
+    for (const f of lines) {
+      const geom = f.geometry;
+      const coords = geom.type === "LineString" ? [(geom as any).coordinates] : (geom as any).coordinates;
+      for (const line of coords) {
+        if (this.pointNearLine(cp, line, this.map, 10)) return f;
       }
-      
-      if (geom.type === "LineString" || geom.type === "MultiLineString") {
-        const coords = geom.type === "LineString" ? [(geom as any).coordinates] : (geom as any).coordinates;
-        for (const line of coords) {
-            if (this.pointNearLine(cp, line, this.map, 10)) return f;
-        }
-      }
-      
-      if (geom.type === "Polygon" && this.pointInPolygon([lng, lat], (geom as any).coordinates)) return f;
-      
-      if (geom.type === "MultiPolygon") {
-        for (const poly of (geom as any).coordinates) {
+    }
+
+    // 4. Check Polygons last
+    for (const f of polygons) {
+      const geom = f.geometry;
+      const coords = (geom as any).coordinates;
+      if (geom.type === "Polygon") {
+        if (this.pointInPolygon([lng, lat], coords)) return f;
+      } else { // MultiPolygon
+        for (const poly of coords) {
           if (this.pointInPolygon([lng, lat], poly)) return f;
         }
       }
     }
+
     return null;
   }
 

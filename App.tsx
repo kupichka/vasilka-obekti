@@ -148,7 +148,7 @@ export default function App() {
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg">
         <div className="flex p-1">
           <button 
-            onClick={() => { setMode("learn"); mapService.resetAllStyles(); handleRegionChange("All"); }}
+            onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
             style={{ marginRight: '30px' }}
             className={`px-6 py-2 rounded-lg transition-all ${mode === "learn" ? "bg-white shadow text-blue-600 font-bold" : "text-slate-500"}`}
           >
