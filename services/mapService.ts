@@ -5,6 +5,7 @@ import RBush from "rbush";
 import type { GeoFeature } from "../types/geo";
 import * as topojson from "topojson-client";
 
+const DEBUG = false;
 const geojsonvt = (geojsonvtModule as any).default || geojsonvtModule;
 interface SpatialItem {
   minX: number; minY: number; maxX: number; maxY: number;
@@ -42,14 +43,14 @@ class MapService {
   }
 
   private getFeatureId(f: GeoFeature): string {
-    this.logEnter("getFeatureID");
+    if(DEBUG) this.logEnter("getFeatureID");
     if ((f as any)._id) return (f as any)._id;
     const id = f.properties?.['@id'] || f.id || (f as any)._internalId;
     return id ? id.toString() : `gen-${Math.random().toString(36).slice(2, 9)}`;
   }
 
   private getThemeColors() {
-    this.logEnter("getThemeColors");
+    if(DEBUG) this.logEnter("getThemeColors");
     return {
       primary: this.darkTiles ? "#60a5fa" : "#2563eb",
       fill: "rgba(59, 130, 246, 0.35)",
@@ -60,14 +61,14 @@ class MapService {
   }
 
   public setFeatureClickHandler(handler: (feature: GeoFeature | null) => void) {
-    this.logEnter("setFeatureClickHandler");
+    if(DEBUG) this.logEnter("setFeatureClickHandler");
     this.onFeatureClick = handler;
   }
 
   init(container: HTMLDivElement, center: [number, number], zoom: number) {
-    this.logEnter("init");
+    if(DEBUG) this.logEnter("init");
     if (this.map){ 
-      this.logExit("init", "map already initialized?");
+      if(DEBUG) this.logExit("init", "map already initialized?");
       return;
     }
     this.map = L.map(container, { center, zoom, minZoom: 5, maxZoom: 18,
@@ -107,13 +108,13 @@ class MapService {
         this.updateHighlightLayer();
       }
     });
-    this.logExit("init", "end of function");
+    if(DEBUG) this.logExit("init", "end of function");
   }
 
   private isReady=false;
 
   setRawData(topoData: any) {
-    this.logEnter("setRawData");
+    if(DEBUG) this.logEnter("setRawData");
     try {
       this.featureMap.clear();
       this.spatialIndex.clear();
@@ -190,14 +191,14 @@ class MapService {
       }
     } catch (e){
       console.error("Critical error indexing GeoJSON:", e);
-      this.logExit("setRawData", "exception occured");
+      if(DEBUG) this.logExit("setRawData", "exception occured");
     } 
   }
 
   private drawTileCanvas(canvas: HTMLCanvasElement, coords: L.Coords) {
-    this.logEnter("drawTileCanvas");
+    if(DEBUG) this.logEnter("drawTileCanvas");
     if (!this.isReady || !this.tileIndex){
-      this.logExit("drawTileCanvas", "data isn't ready or tileIndex is evil");
+      if(DEBUG) this.logExit("drawTileCanvas", "data isn't ready or tileIndex is evil");
       return;
     }
     const size = 256;
@@ -210,7 +211,7 @@ class MapService {
     console.log("REQUESTING TILE AT Z:", coords.z);
     const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
     if (!vtTile) {
-      this.logExit("drawTileCanvas", "vtTile is stupid");
+      if(DEBUG) this.logExit("drawTileCanvas", "vtTile is stupid");
       ctx.restore();
       return;
     }
@@ -309,13 +310,13 @@ class MapService {
     }
     
     ctx.restore();
-    this.logExit("drawTileCanvas", "function end");
+    if(DEBUG) this.logExit("drawTileCanvas", "function end");
   }
 
   loadGeoJSON() {
-    this.logEnter("loadGeoJSON");
+    if(DEBUG) this.logEnter("loadGeoJSON");
     if (!this.map || !this.tileIndex){
-      this.logExit("loadGeoJSON", "map isn't here or tileIndex is evil");
+      if(DEBUG) this.logExit("loadGeoJSON", "map isn't here or tileIndex is evil");
       return;
     }
     if (this.tileLayer){
@@ -347,14 +348,14 @@ class MapService {
     });
 
     this.tileLayer = new (CanvasLayer as any)().addTo(this.map);
-    this.logExit("loadGeoJSON", "function end");
+    if(DEBUG) this.logExit("loadGeoJSON", "function end");
   }
 
   setTileLayer(showLabels: boolean) {
-    this.logEnter("setTileLayer");
+    if(DEBUG) this.logEnter("setTileLayer");
     this.showLabels = showLabels;
     if (!this.map){
-      this.logExit("setTileLayer", "map is evil?");
+      if(DEBUG) this.logExit("setTileLayer", "map is evil?");
       return;
     }
     this.map.eachLayer(l => { if (l instanceof L.TileLayer) this.map?.removeLayer(l); });
@@ -376,7 +377,7 @@ class MapService {
     }
 
     L.tileLayer(url, { attribution/*, detectRetina: true */ }).addTo(this.map);
-    this.logExit("setTileLayer", "function end");
+    if(DEBUG) this.logExit("setTileLayer", "function end");
   }
 
   setDarkTiles(dark: boolean) {
@@ -436,6 +437,9 @@ class MapService {
     if (!this.map) return null;
     const cp = this.map.latLngToContainerPoint([lat, lng]);
     
+    const zoom = this.map.getZoom();
+    const hitRadius = zoom <= 7 ? 4 : zoom <= 10 ? 7 : 10;
+
     const nw = this.map.containerPointToLatLng(cp.subtract([15, 15]));
     const se = this.map.containerPointToLatLng(cp.add([15, 15]));
 
@@ -450,6 +454,13 @@ class MapService {
     const points: any[] = [];
     const lines: any[] = [];
     const polygons: any[] = [];
+
+    const edgePt = L.point(cp.x + hitRadius, cp.y);
+    const thresholdLngDeg = Math.abs(this.map.containerPointToLatLng(edgePt).lng - lng);
+    const thresholdSq = thresholdLngDeg * thresholdLngDeg;
+
+    // 2. Pre-calculate the cosine of the latitude for fast flat-plane scaling
+    const cosLat = Math.cos(lat * Math.PI / 180);
 
     // 1. Categorize matches
     for (const match of matches) {
@@ -474,7 +485,7 @@ class MapService {
       const geom = f.geometry;
       const coords = geom.type === "LineString" ? [(geom as any).coordinates] : (geom as any).coordinates;
       for (const line of coords) {
-        if (this.pointNearLine(cp, line, this.map, 10)) return f;
+        if (this.fastPointNearLine(lng, lat, line, thresholdSq, cosLat)) return f;
       }
     }
 
@@ -494,21 +505,44 @@ class MapService {
     return null;
   }
 
-  private pointNearLine(pt: L.Point, coords: any[], map: L.Map, threshold: number): boolean {
+  private fastPointNearLine(lng: number, lat: number, coords: any[], thresholdSq: number, cosLat: number): boolean {
     for (let i = 0; i < coords.length - 1; i++) {
-      const p1 = map.latLngToContainerPoint([coords[i][1], coords[i][0]]);
-      const p2 = map.latLngToContainerPoint([coords[i+1][1], coords[i+1][0]]);
-      if (this.distToSegment(pt, p1, p2) <= threshold) return true;
+      const x1 = coords[i][0], y1 = coords[i][1];
+      const x2 = coords[i+1][0], y2 = coords[i+1][1];
+      
+      if (this.distToSegmentSqGeographic(lng, lat, x1, y1, x2, y2, cosLat) <= thresholdSq) {
+        return true;
+      }
     }
     return false;
   }
 
-  private distToSegment(p: L.Point, a: L.Point, b: L.Point) {
-    const l2 = Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2);
-    if (l2 === 0) return p.distanceTo(a);
-    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+  private distToSegmentSqGeographic(px: number, py: number, x1: number, y1: number, x2: number, y2: number, cosLat: number): number {
+    // Scale longitude by cos(lat) to account for map distortion (Earth's curvature)
+    const dx = (x2 - x1) * cosLat;
+    const dy = y2 - y1;
+    
+    const pxScaled = px * cosLat;
+    const x1Scaled = x1 * cosLat;
+    
+    const l2 = dx * dx + dy * dy;
+    
+    if (l2 === 0) {
+      const ddx = pxScaled - x1Scaled;
+      const ddy = py - y1;
+      return ddx * ddx + ddy * ddy;
+    }
+
+    let t = ((pxScaled - x1Scaled) * dx + (py - y1) * dy) / l2;
     t = Math.max(0, Math.min(1, t));
-    return p.distanceTo(L.point(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)));
+
+    const projX = x1Scaled + t * dx;
+    const projY = y1 + t * dy;
+
+    const ddx = pxScaled - projX;
+    const ddy = py - projY;
+
+    return ddx * ddx + ddy * ddy; // Return squared distance to avoid Math.sqrt overhead
   }
 
   // OPTIMIZED: Fast AABB bounds checking and explicit hole handling
@@ -559,22 +593,22 @@ class MapService {
   }
 
   private updateHighlightLayer() {
-    this.logEnter("updateHighlightLayer");
+    if(DEBUG) this.logEnter("updateHighlightLayer");
     const stateKey = `${this.selectedFeatureId}-${this.highlightedFeatureId}-${this.hoveredFeatureId}`;
     if ((this as any)._lastStateKey === stateKey){
-      this.logExit("updateHighlightLayer", "state is the same, no need for update");
+      if(DEBUG) this.logExit("updateHighlightLayer", "state is the same, no need for update");
       return;
     }
     (this as any)._lastStateKey = stateKey;
 
     this.scheduleRedraw();
-    this.logExit("updateHighlightLayer", "schedule redraw, function exit");
+    if(DEBUG) this.logExit("updateHighlightLayer", "schedule redraw, function exit");
   }
 
   private scheduleRedraw() {
-    this.logEnter("scheduleRedraw");
+    if(DEBUG) this.logEnter("scheduleRedraw");
     if (this.pendingRedraw){
-      this.logExit("scheduleRedraw", "already pending redraw");
+      if(DEBUG) this.logExit("scheduleRedraw", "already pending redraw");
       return;
     }
     this.pendingRedraw = true;
@@ -592,7 +626,7 @@ class MapService {
           this.drawTileCanvas(tile.el as HTMLCanvasElement, tile.coords);
         }
       }
-      this.logExit("scheduleRedraw", "highlight layer is redrawn, function end");
+      if(DEBUG) this.logExit("scheduleRedraw", "highlight layer is redrawn, function end");
     });
   }
 
@@ -644,8 +678,35 @@ class MapService {
     });
   }
 
+  private getFastBounds(geometry: any): L.LatLngBounds {
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    const stack = [geometry.coordinates];
+
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current || current.length === 0) continue;
+
+      // If the first element is a number, we've hit the bottom [lng, lat] pair
+      if (typeof current[0] === 'number') {
+        const lng = current[0];
+        const lat = current[1];
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+      } else {
+        // It's an array of arrays, push them all onto the stack to be processed
+        for (let i = 0; i < current.length; i++) {
+          stack.push(current[i]);
+        }
+      }
+    }
+    
+    return L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
+  }
+
   public flyToRegion(region: string) {
-    this.logEnter("flyToRegion");
+    if(DEBUG) this.logEnter("flyToRegion");
     if (!this.map || this.featureMap.size === 0) return;
 
     if (region === "All") {
@@ -676,8 +737,7 @@ class MapService {
       }
 
       if (match) {
-        const layer = L.geoJSON(f);
-        bounds.extend(layer.getBounds());
+        bounds.extend(this.getFastBounds(f.geometry));
       }
     });
 
@@ -691,7 +751,7 @@ class MapService {
   }
 
   destroy() { 
-    this.logEnter("destroy");
+    if(DEBUG) this.logEnter("destroy");
     this.map?.remove(); 
     this.map = undefined; 
   }
