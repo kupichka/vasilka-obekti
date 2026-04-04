@@ -5,21 +5,48 @@ import InfoPanel from "./components/InfoPanel"
 import { quizEngine } from "./services/quizEngine"
 import { mapService } from "./services/mapService"
 import type { GeoFeature } from "./types/geo"
+import { ALL_REGIONS } from "./types/geo"
 import "./stylized.css"
 import rawData from "./data/objects2_cleaned.json";
 import villagesData from "./data/towns_cleaned.json";
 
+// Helper to validate mode
+const getSavedMode = (): "learn" | "quiz" => {
+  const saved = localStorage.getItem("vasilka_mode");
+  return (saved === "learn" || saved === "quiz") ? saved : "learn";
+};
+
+// Helper to validate region
+const getSavedRegion = (): string => {
+  return localStorage.getItem("vasilka_region") || "All";
+};
+
+const getSavedScore = (): number => {
+  const saved = localStorage.getItem("vasilka_score");
+  return saved ? parseInt(saved, 10) : 0;
+};
+
+const getDarkTiles = (): boolean => {
+  const saved = localStorage.getItem("vasilka_tiles");
+  return saved === "true";
+};
+
+const getLabels = (): boolean => {
+  const saved = localStorage.getItem("vasilka_labels");
+  return saved !== "false";
+};
+
 export default function App() {
-  const [mode, setMode] = useState<"learn" | "quiz">("learn")
+  const [mode, setMode] = useState<"learn" | "quiz">(getSavedMode)
+  const [currentRegion, setCurrentRegion] = useState<string>(getSavedRegion)
   const [selected, setSelected] = useState<GeoFeature | null>(null)
   const [target, setTarget] = useState<GeoFeature | null>(null)
-  const [score, setScore] = useState(0)
+  const [score, setScore] = useState<number>(getSavedScore)
   const [isSpoiled, setIsSpoiled] = useState(false)
   const [feedback, setFeedback] = useState<{ msg: string; type: "success" | "error" } | null>(null)
   const [regionList, setRegionList] = useState<string[]>(["All"])
-  const [currentRegion, setCurrentRegion] = useState<string>("All")
-  const [showLabels, setShowLabels] = useState(true)
-  const [darkTiles, setDarkTiles] = useState(false)
+  const [showLabels, setShowLabels] = useState<boolean>(getLabels)
+  const [darkTiles, setDarkTiles] = useState<boolean>(getDarkTiles)
   const [isDataReady, setIsDataReady] = useState(false);
   const loadedDataType = useRef<"Objects" | "Cities">("Objects");
 
@@ -27,16 +54,27 @@ export default function App() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 1. Feed the engines
-        quizEngine.setFeatures(rawData);
-        mapService.setRawData(rawData); 
+        // 1. Determine which dataset to load based on the saved region
+        const isCityRegion = currentRegion.startsWith("Градове");
+        const initialData = isCityRegion ? villagesData : rawData;
+        loadedDataType.current = isCityRegion ? "Cities" : "Objects";
+
+        // 2. Feed the engines with the correct data
+        quizEngine.setFeatures(initialData);
+        mapService.setRawData(initialData);
         
-        // 2. Set UI states
-        const available = quizEngine.getAvailableRegions();
-        setRegionList(["Градове 1", "Градове 2", "Градове 3", "Градове 4", "Градове 5", "Градове 6", "Градове 7", "Градове (257)", ...available]);
-        
-        // 3. THE KEY: Signal that the service is ready
+        // 3. Set UI states
+        setRegionList([...ALL_REGIONS]);
+        quizEngine.setRegion(currentRegion);
+        mapService.renderFilteredFeatures(currentRegion);
+
+        // 4. THE KEY: Signal that the service is ready
         setIsDataReady(true); 
+
+        if (mode === "quiz"){
+          const next = quizEngine.getNextQuestion();
+          if (next) setTarget(next);
+        }
       } catch (error) {
         console.error("Failed to load data:", error);
       }
@@ -48,16 +86,30 @@ export default function App() {
   useEffect(() => {
     // set tile layer / tiles theme if map already initialized
     mapService.setDarkTiles(darkTiles)
+    localStorage.setItem("vasilka_tiles", darkTiles.toString());
   }, [darkTiles])
 
   useEffect(() => {
     mapService.setTileLayer(showLabels)
+    localStorage.setItem("vasilka_labels", showLabels.toString());
   }, [showLabels])
+
+  useEffect(() => {
+    localStorage.setItem("vasilka_mode", mode);
+  }, [mode]);
+
+  useEffect(() => {
+    localStorage.setItem("vasilka_region", currentRegion);
+  }, [currentRegion]);
+
+  useEffect(() => {
+    localStorage.setItem("vasilka_score", score.toString());
+  }, [score]);
 
   // toast helper
   const showToast = useCallback((msg: string, type: "success" | "error") => {
     setFeedback({ msg, type })
-    setTimeout(() => setFeedback(null), 2500)
+    setTimeout(() => setFeedback(null), 2000)
   }, [])
 
   // start a new quiz question
