@@ -71,11 +71,16 @@ class MapService {
       if(DEBUG) this.logExit("init", "map already initialized?");
       return;
     }
-    this.map = L.map(container, { center, zoom, minZoom: 5, maxZoom: 18,
+    this.map = L.map(container, {
+      center, 
+      zoom, 
+      minZoom: 5, 
+      maxZoom: 18,
       maxBounds: [
         [38.0, 19.0],  // southwest
         [47.0, 31.0]   // northeast
       ],
+      zoomControl: false
       // fadeAnimation: false,
       // maxBoundsViscosity: 0.754
     });

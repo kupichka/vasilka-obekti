@@ -76,7 +76,7 @@ html, body {
 }
 
 .stylized .border-slate-200 {
-  border-color: var(--panel-border-color) !important;
+  border: 2px solid var(--panel-border-color) !important;
 }
 
 /* Override heavier Tailwind shadows to none so our custom shadows show */
@@ -91,7 +91,7 @@ html, body {
 .stylized .stylish-btn {
   background: linear-gradient(180deg, rgba(40,30,63,0.95), rgba(33,23,53,0.95));
   color: var(--text-color) !important;
-  border: 2px solid var(--button-selected-border-color) !important;
+  border: 2px solid var(--button-selected-border-color);
   box-shadow: -5px 0 var(--button-left-border-color), 0 -5px var(--button-top-border-color), 5px 0 var(--button-right-border-color), 0 5px var(--button-bottom-border-color);
   transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
@@ -134,18 +134,6 @@ html, body {
   background-color: #5b2230 !important;
 }
 
-/* Reduce bright blue focus rings to muted outlines */
-/* .stylized :focus {
-  outline: 2px solid rgba(162,78,83,0.35) !important;
-  outline-offset: 2px;
-} */
-
-/* Ensure absolute floating controls get our panel look */
-.stylized .absolute.bg-white {
-  background-color: var(--panel-bg) !important;
-  border: 2px solid var(--panel-border-color) !important;
-}
-
 /* Small helper to apply the button style where needed with class */
 .stylized .btn-2 {
   display: inline-block;
@@ -169,11 +157,6 @@ html, body {
     overflow-y: auto;
   }
   
-  /* Force Leaflet zoom controls to stay accessible */
-  .leaflet-top.leaflet-left {
-    margin-top: 5px !important;
-  }
-
   /* Make checkboxes a bit larger for touch */
   .stylized input[type="checkbox"] {
     transform: scale(1.2);
@@ -202,27 +185,6 @@ html, body {
     margin-left: 0px !important;
     padding: 12px !important;
     border-radius: 0 !important;
-  }
-
-  /* --- HORIZONTAL LEAFLET ZOOM CONTROLS --- */
-  .leaflet-control-zoom {
-    display: flex !important;
-    /* flex-direction: row !important; */
-    /* margin-top: 65px !important; Position it below the Quiz bar */
-    border: none !important;
-    box-shadow: none !important;
-    margin-top: 20px !important;
-    visibility: hidden;
-  }
-
-  .leaflet-control-zoom a {
-    width: 32px !important;
-    height: 32px !important;
-    line-height: 32px !important;
-    background-color: var(--bg-secondary) !important;
-    color: var(--text-color) !important;
-    border: 1px solid var(--panel-border-color) !important;
-    margin-right: 4px !important;
   }
 
   /* One-line Quiz Styling */
@@ -279,12 +241,6 @@ html, body {
     /* Height of the bottom bar + padding + safe area */
     margin-bottom: calc(50px + env(safe-area-inset-bottom)) !important;
   }
-}
-
-/* Optional: If the notch covers your side controls in landscape mode */
-.stylized {
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
 }
 
 .loading-screen {

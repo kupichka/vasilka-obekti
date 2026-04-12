@@ -49,6 +49,7 @@ export default function App() {
   const [darkTiles, setDarkTiles] = useState<boolean>(getDarkTiles)
   const [isDataReady, setIsDataReady] = useState(false);
   const loadedDataType = useRef<"Objects" | "Cities">("Objects");
+  const [showAbout, setShowAbout] = useState(false);
 
   // initial data load for quizEngine and mapService
   useEffect(() => {
@@ -193,24 +194,24 @@ export default function App() {
   return (
     <div className="h-full w-full relative overflow-hidden stylized" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {feedback && (
-        <div className={`absolute top-28 left-2/3 -translate-x-1/2 z-[2000] px-2 py-2 rounded-full shadow-2xl transition-all motion-safe:md:animate-bounce text-white font-bold text-center max-md:text-[10px] max-md:px-4 ${
+        <div className={`absolute top-28 left-2/3 -translate-x-1/2 z-[2000] px-2 py-2 shadow-2xl transition-all motion-safe:md:animate-bounce text-white font-bold text-center max-md:text-[10px] max-md:px-4 ${
           feedback.type === "success" ? "bg-green-500" : "bg-red-500"
         }`}>
           {feedback.msg}
         </div>
       )}
 
-      <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 rounded-2xl shadow-xl border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out`}>
+      <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out`}>
         <div className="flex p-1">
           <button 
             onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
-            className={`px-6 py-2 rounded-lg mr-[30px] transition-all ${mode === "learn" ? "bg-white text-blue-600 font-bold" : "text-slate-500"}`}
+            className={`px-6 py-2 mr-[30px] transition-all ${mode === "learn" ? "bg-white text-blue-600 font-bold" : "text-slate-500"}`}
           >
             Научи
           </button>
           <button 
             onClick={() => { setMode("quiz"); startNewQuestion(); }}
-            className={`px-6 py-2 rounded-lg transition-all ${mode === "quiz" ? "bg-white text-orange-500 font-bold" : "text-slate-500"}`}
+            className={`px-6 py-2 transition-all ${mode === "quiz" ? "bg-white text-orange-500 font-bold" : "text-slate-500"}`}
           >
             Тест
           </button>
@@ -236,7 +237,7 @@ export default function App() {
               : "opacity-0 -translate-x-1/2 -translate-y-6 scale-95 pointer-events-none"
             }`}
         >
-          <div className="bg-white px-8 py-4 rounded-2xl border-b-4 shadow-2xl text-center w-full">
+          <div className="bg-white px-8 py-4 border-b-4 shadow-2xl text-center w-full">
             <p className="text-sm uppercase tracking-widest text-slate-400 font-bold">Намери обекта</p>
             <p className="text-2xl font-black text-slate-800">
               {target ? formatName(target.properties.name) : "..."}
@@ -244,7 +245,7 @@ export default function App() {
           </div>
           <button 
             onClick={handleShowHint} 
-            className="bg-slate-800 text-white text-xs px-4 py-1.5 rounded-full hover:bg-slate-700 transition-colors uppercase tracking-tighter"
+            className="bg-slate-800 text-white text-xs px-4 py-1.5 hover:bg-slate-700 transition-colors uppercase tracking-tighter"
           >
             Покажи (без точка)
           </button>
@@ -278,19 +279,19 @@ export default function App() {
       </>
 
       {/* DESKTOP REGION SELECTOR */}
-      <div className="desktop-only absolute top-4 right-4 z-[1000] bg-white p-2 rounded-xl shadow-lg border border-slate-200">
+      <div className="desktop-only absolute top-4 right-4 z-[1000] bg-white p-2 border border-slate-200">
         <label className="text-xs font-bold text-slate-400 block mb-1 px-1 tracking-tighter uppercase" aria-label="Избери област">ИЗБЕРИ ОБЛАСТ</label>
         <select
           value={currentRegion}
           onChange={(e) => handleRegionChange(e.target.value)}
-          className="bg-slate-50 border-none text-sm font-bold text-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          className="bg-slate-50 border-none text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer"
         >
           {regionList.map(region => <option key={region} value={region}>{region}</option>)}
         </select>
       </div>
 
       {/* DESKTOP SETTINGS */}
-      <div className="desktop-only absolute bottom-5 right-1 z-[1000] bg-white p-3 rounded-xl shadow-lg border border-slate-200 flex flex-col items-start gap-3">
+      <div className="desktop-only absolute bottom-5 right-1 z-[1000] bg-white p-3 border border-slate-200 flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <input type="checkbox" id="showLabels" checked={showLabels} onChange={(e) => { setShowLabels(e.target.checked); }} className="cursor-pointer w-4 h-4" />
           <label htmlFor="showLabels" className="text-xs font-bold text-slate-700 cursor-pointer">Наименования</label>
@@ -333,6 +334,76 @@ export default function App() {
 
       <div className="info-panel-mobile-container">
         <InfoPanel feature={selected} />
+      </div>
+
+      {/* Info button - Positioned top-left like the old zoom buttons */}
+      <button 
+        className="absolute top-4 left-4 z-[1001] w-8 h-8 bg-white border-2 border-slate-200 rounded-md font-serif font-bold hover:bg-slate-50 shadow-md"
+        onClick={() => setShowAbout(true)}
+        aria-label="Show Information"
+      >
+        i
+      </button>
+
+      {/* The About Panel Overlay */}
+      <div 
+        className={`fixed inset-0 z-[2000] bg-black/60 flex items-center justify-center p-4 transition-opacity duration-300 ${
+          showAbout ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setShowAbout(false)} // Close when clicking backdrop
+      >
+        <div 
+          className="bg-white p-5 rounded-2xl max-w-lg relative shadow-2xl"
+          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the box itself
+        >
+          <button 
+            className="absolute top-2 right-5 text-3xl text-slate-400 hover:text-slate-600 !border-none !shadow-none !bg-none"
+            onClick={() => setShowAbout(false)}
+          >
+            &times;
+          </button>
+
+          <div className="space-y-2 selection:bg-blue-100">
+            {/* Header Section */}
+            <header className="border-b border-slate-100 pb-3">
+              <h2 className="text-xl font-black uppercase tracking-wider text-blue-700">
+                Гео Обекти
+              </h2>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
+                Образователен инструмент за НПМГ
+              </p>
+            </header>
+
+            {/* Main Description */}
+            <section className="text-sm leading-relaxed">
+              <p>
+                <strong className="text-slate-900">Гео Обекти</strong> (достъпен на <a href="https://vasilka.kupichka.org" className="text-blue-600 hover:underline font-medium">vasilka.kupichka.org</a>) е специализирана платформа за усвояване на географската номенклатура на България. Проектът е създаден за подготовка за изпитването в <strong className="text-slate-900">10. клас</strong> по география, включващ 250-те задължителни природни обекта.
+              </p>
+            </section>
+
+            {/* Scope / List Section */}
+            <section>
+              <h3 className="font-bold">Обхват на сайта:</h3>
+              <ul className="list-disc ml-5 space-y-1 text-sm">
+                <li><strong>250+ природни обекта:</strong> Разделени по физико-географски области (Дунавска равнина, Стара планина, Рила, Пирин, Родопи и др.)</li>
+                <li><strong>Специализирани подкатегории:</strong> Защитени територии и реки от 250те обекта.</li>
+                <li><strong>Градове в България:</strong> Пълен списък от 257 града, организирани в 7 региона за по-лесно запаметяване.</li>
+              </ul>
+            </section>
+
+            {/* Author Attribution */}
+            <footer className="pt-2">
+              <p className="text-sm">
+                Разработено от <strong className="text-slate-900">Борислав Дочев</strong> от <strong>НПМГ</strong> за подпомагане на интерактивното обучение по география.
+              </p>
+              
+              <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] tracking-widest text-slate-400 font-bold">
+                <span>Данни: OpenStreetMap</span>
+                <span>Source code: <a href="https://github.com/kupichka/vasilka-obekti" target="_blank" className="text-blue-600 hover:underline font-medium">GitHub</a></span>
+              </div>
+            </footer>
+          </div>
+        </div>
       </div>
     </div>
   )
