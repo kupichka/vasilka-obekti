@@ -100,7 +100,7 @@ html, body {
 .stylized .stylish-btn:hover {
   box-shadow: -5px 0 var(--button-hover-left-border-color), 0 -5px var(--button-hover-top-border-color), 5px 0 var(--button-hover-right-border-color), 0 5px var(--button-hover-bottom-border-color);
   border-color: var(--button-hover-top-border-color) !important;
-  transform: translateY(-1px);
+  /* transform: translateY(-1px); */
 }
 
 /* Make selects/inputs match the style */
@@ -135,10 +135,10 @@ html, body {
 }
 
 /* Reduce bright blue focus rings to muted outlines */
-.stylized :focus {
+/* .stylized :focus {
   outline: 2px solid rgba(162,78,83,0.35) !important;
   outline-offset: 2px;
-}
+} */
 
 /* Ensure absolute floating controls get our panel look */
 .stylized .absolute.bg-white {

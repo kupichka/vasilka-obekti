@@ -76,6 +76,7 @@ class MapService {
         [38.0, 19.0],  // southwest
         [47.0, 31.0]   // northeast
       ],
+      // fadeAnimation: false,
       // maxBoundsViscosity: 0.754
     });
     
@@ -196,22 +197,23 @@ class MapService {
   }
 
   private drawTileCanvas(canvas: HTMLCanvasElement, coords: L.Coords) {
-    if(DEBUG) this.logEnter("drawTileCanvas");
-    if (!this.isReady || !this.tileIndex){
-      if(DEBUG) this.logExit("drawTileCanvas", "data isn't ready or tileIndex is evil");
+    if (DEBUG) this.logEnter("drawTileCanvas");
+    if (!this.isReady || !this.tileIndex) {
+      if (DEBUG) this.logExit("drawTileCanvas", "data isn't ready or tileIndex is evil");
       return;
     }
+    
     const size = 256;
     const dpr = window.devicePixelRatio || 1;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { 'alpha': true })!;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(dpr, dpr);
-    console.log("REQUESTING TILE AT Z:", coords.z);
+    
     const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
     if (!vtTile) {
-      if(DEBUG) this.logExit("drawTileCanvas", "vtTile is stupid");
+      if (DEBUG) this.logExit("drawTileCanvas", "vtTile is stupid");
       ctx.restore();
       return;
     }
@@ -221,11 +223,34 @@ class MapService {
     ctx.rect(-0.5, -0.5, size + 1, size + 1);
     ctx.clip();
 
-    ctx.lineJoin = 'round'; 
+    ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     const colors = this.getThemeColors();
 
-    const renderFeature = (feature: any, isActive: boolean, isSelected: boolean) => {
+    // 1. Setup Style Buckets
+    // We use a Map to group features that share the exact same rendering style
+    type StyleState = { fill?: string; stroke: string; lineWidth: number };
+    const batches = new Map<string, { style: StyleState; features: any[] }>();
+
+    // Helper to get or create a batch
+    const addToBatch = (styleKey: string, style: StyleState, feature: any) => {
+      if (!batches.has(styleKey)) {
+        batches.set(styleKey, { style, features: [] });
+      }
+      batches.get(styleKey)!.features.push(feature);
+    };
+
+    // 2. Distribute features into their respective style buckets
+    for (const feature of vtTile.features) {
+      const vid = feature.tags?.['@id']?.toString() || feature.id?.toString() || feature.tags?.__id?.toString();
+      const isFiltered = this.currentRegion !== "All" && (!vid || !this.filteredIds.has(vid));
+      if (isFiltered) continue;
+
+      const isSelected = vid === this.selectedFeatureId;
+      const isHighlighted = vid === this.highlightedFeatureId;
+      const isHovered = vid === this.hoveredFeatureId;
+      const isActive = isSelected || isHighlighted || isHovered;
+
       let currentFill = colors.fill;
       let currentOutline = colors.outline;
       let currentLineWidth = 1;
@@ -233,7 +258,7 @@ class MapService {
       if (isActive) {
         if (isSelected) {
           currentOutline = colors.selected;
-          currentFill = "rgba(249, 115, 22, 0.4)"; 
+          currentFill = "rgba(249, 115, 22, 0.4)";
           currentLineWidth = 2.5;
         } else {
           currentOutline = colors.highlight;
@@ -245,72 +270,62 @@ class MapService {
         currentLineWidth = 1.5;
       }
 
-      if (feature.type === 1) { // Points
-        ctx.fillStyle = currentFill;
-        ctx.strokeStyle = currentOutline;
-        ctx.lineWidth = currentLineWidth;
-
-        for (const p of feature.geometry) {
-          const px = (p[0] / 4096) * size;
-          const py = (p[1] / 4096) * size;
-          
-          ctx.beginPath();
-          ctx.arc(px, py, isActive ? 8 : 6, 0, Math.PI * 2); 
-          ctx.fill();
-          ctx.stroke();
-        }
-        return;
-      }
-
-      ctx.beginPath();
-      for (const ring of feature.geometry) {
-        for (let i = 0; i < ring.length; i++) {
-          const x = (ring[i][0] / 4096) * size;
-          const y = (ring[i][1] / 4096) * size;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-      }
-
-      if (feature.type === 3) { // Polygon
-        ctx.fillStyle = currentFill;
-        ctx.fill();
-        ctx.strokeStyle = currentOutline;
-        ctx.lineWidth = currentLineWidth;
-        ctx.stroke();
-      } else if (feature.type === 2) { // LineString
-        ctx.strokeStyle = currentOutline;
-        ctx.lineWidth = currentLineWidth;
-        ctx.stroke();
-      }
-    };
-
-    // TWO-PASS RENDER FIX
-    const activeFeatures: any[] = [];
-
-    for (const feature of vtTile.features) {
-      const vid = feature.tags?.['@id']?.toString() || feature.id?.toString() || feature.tags?.__id?.toString();
-      const isFiltered = this.currentRegion !== "All" && (!vid || !this.filteredIds.has(vid));
-      if (isFiltered) continue;
-
-      const isSelected = vid === this.selectedFeatureId;
-      const isHighlighted = vid === this.highlightedFeatureId;
-      const isHovered = vid === this.hoveredFeatureId;
-      const isActive = isSelected || isHighlighted || isHovered;
-
-      if (isActive) {
-        activeFeatures.push({ feature, isSelected });
-      } else {
-        renderFeature(feature, false, false);
-      }
+      // Create a unique key for this style combo, prefixed with Z-index priority
+      // Inactive = 0, Active/Hover = 1, Selected = 2 (Ensures active draws on top)
+      const zIndex = isSelected ? 2 : isActive ? 1 : 0;
+      const styleKey = `${zIndex}-${feature.type}-${currentFill}-${currentOutline}-${currentLineWidth}`;
+      
+      addToBatch(styleKey, { fill: currentFill, stroke: currentOutline, lineWidth: currentLineWidth }, feature);
     }
 
-    // Draw active features on top
-    for (const item of activeFeatures) {
-      renderFeature(item.feature, true, item.isSelected);
+    // Sort batches by our Z-index prefix so active/selected features render last (on top)
+    const sortedBatchKeys = Array.from(batches.keys()).sort();
+
+    // 3. Render each batch in a single pass
+    for (const key of sortedBatchKeys) {
+      const batch = batches.get(key)!;
+      const { fill, stroke, lineWidth } = batch.style;
+      const type = batch.features[0].type; // Type is consistent per batch based on our key
+
+      ctx.beginPath(); // Start ONE path for this entire batch
+
+      for (const feature of batch.features) {
+        if (type === 1) { // Points
+          const radius = key.includes('-1-') || key.includes('-2-') ? 6 : 4; // Check zIndex for isActive
+          for (const p of feature.geometry) {
+            const px = (p[0] / 4096) * size;
+            const py = (p[1] / 4096) * size;
+            // moveTo the edge of the arc to prevent connecting lines between points
+            ctx.moveTo(px + radius, py);
+            ctx.arc(px, py, radius, 0, Math.PI * 2);
+          }
+        } else { // Lines (2) and Polygons (3)
+          for (const ring of feature.geometry) {
+            for (let i = 0; i < ring.length; i++) {
+              const x = (ring[i][0] / 4096) * size;
+              const y = (ring[i][1] / 4096) * size;
+              if (i === 0) ctx.moveTo(x, y); 
+              else ctx.lineTo(x, y);
+            }
+          }
+        }
+      }
+
+      // Apply styles and execute draw commands ONCE per batch
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = stroke;
+      
+      if (type === 1 || type === 3) { // Fill points and polygons
+        ctx.fillStyle = fill!;
+        // 'nonzero' is the default and cleanly handles clockwise outer/counter-clockwise inner holes
+        ctx.fill(); 
+      }
+      
+      ctx.stroke(); // Stroke all geometries in this batch
     }
-    
+
     ctx.restore();
-    if(DEBUG) this.logExit("drawTileCanvas", "function end");
+    if (DEBUG) this.logExit("drawTileCanvas", "function end");
   }
 
   loadGeoJSON() {
@@ -320,15 +335,15 @@ class MapService {
       return;
     }
     if (this.tileLayer){
-      console.log("loadGeoJSON: remove tile layer");
+      // console.log("loadGeoJSON: remove tile layer");
       this.map.removeLayer(this.tileLayer);
     }
 
     const CanvasLayer = L.GridLayer.extend({
       options: {
         pane: "overlayPane",
-        updateWhenZooming: false,
-        updateWhenIdle: true,
+        updateWhenZooming: true,
+        updateWhenIdle: false,
         keepBuffer: 6
       },
       createTile: (coords: L.Coords, done: any) => {
@@ -338,6 +353,7 @@ class MapService {
         tile.width = size * dpr; tile.height = size * dpr;
         tile.style.width = `${size}px`; tile.style.height = `${size}px`;
 
+        
         setTimeout(() => {
           this.drawTileCanvas(tile, coords);
           done(null, tile);
@@ -474,10 +490,18 @@ class MapService {
     }
 
     // 2. Check Points first
+    let closestFeature = null, closestDistance = Infinity;
     for (const f of points) {
       const geom = f.geometry;
       const p = this.map.latLngToContainerPoint([(geom as any).coordinates[1], (geom as any).coordinates[0]]);
-      if (p.distanceTo(cp) <= 15) return f;
+      const pointDistance = p.distanceTo(cp);
+      if (pointDistance <= 15 && pointDistance < closestDistance){
+        closestFeature = f;
+        closestDistance = pointDistance;
+      }
+    }
+    if (closestFeature !== null){
+      return closestFeature;
     }
 
     // 3. Check Lines second
@@ -622,7 +646,7 @@ class MapService {
       
       for (const key in tiles) {
         const tile = tiles[key];
-        if (tile.el && tile.active) { 
+        if (tile.current && tile.el && tile.active) { 
           this.drawTileCanvas(tile.el as HTMLCanvasElement, tile.coords);
         }
       }

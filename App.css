@@ -60,3 +60,5 @@ html, body, #root {
 .leaflet-interactive {
   cursor: pointer;
 }
+
+.cursor-pointer { cursor: pointer !important; }

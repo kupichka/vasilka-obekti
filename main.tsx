@@ -14,9 +14,7 @@ delete (L.Icon.Default.prototype as any)._getIconUrl
 
 const updateSW = registerSW({
   onNeedRefresh() {
-    if (confirm('New content available. Reload?')) {
-      updateSW(true);
-    }
+    updateSW(true);
   },
   onOfflineReady() {
     console.log('App is ready to work offline!');
