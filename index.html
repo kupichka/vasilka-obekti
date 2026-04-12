@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/bulgaria_8139230.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="Интерактивна карта на България за бързо научаване на обекти като градове, реки, планини, ридове, езера и други.">
-    <title>Географски Обекти</title>
+    <meta name="description" content="Интерактивна карта и тест на България за бързо научаване на обекти като градове, реки, планини, ридове, езера и други.">
+    <title>Гео Обекти</title>
     <meta name="theme-color" content="#140e1e">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -55,18 +55,55 @@
   
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://vasilka.kupichka.org/">
-    <meta property="og:title" content="Географски Обекти">
-    <meta property="og:description" content="Интерактивна карта на България за бързо научаване на обекти като градове, реки, планини, ридове, езера и други.">
+    <meta property="og:title" content="Гео Обекти">
+    <meta property="og:description" content="Интерактивна карта и тест на България за бързо научаване на обекти като градове, реки, планини, ридове, езера и други.">
     <meta property="og:image" content="/bulgaria_8139230.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
 
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:title" content="Географски Обекти">
+    <meta property="twitter:title" content="Гео Обекти">
     <script type="module" crossorigin src="/assets/index-BgPTDynd.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BXQmmxq2.css">
   <link rel="manifest" href="/manifest.webmanifest"></head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+		<div className="space-y-2 selection:bg-blue-100">
+            <header className="border-b border-slate-100 pb-3">
+              <h2 className="text-xl font-black uppercase tracking-wider text-blue-700">
+                Гео Обекти
+              </h2>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
+                Образователен инструмент за НПМГ
+              </p>
+            </header>
+
+            <section className="text-sm leading-relaxed">
+              <p>
+                <strong className="text-slate-900">Гео Обекти</strong> (достъпен на <a href="https://vasilka.kupichka.org" className="text-blue-600 hover:underline font-medium">vasilka.kupichka.org</a>) е специализирана платформа за усвояване на географската номенклатура на България. Проектът е създаден за подготовка за изпитването в <strong className="text-slate-900">10. клас</strong> по география, включващ 250-те задължителни природни обекта.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="font-bold">Обхват на сайта:</h3>
+              <ul className="list-disc ml-5 space-y-1 text-sm">
+                <li><strong>250+ природни обекта:</strong> Разделени по физико-географски области (Дунавска равнина, Стара планина, Рила, Пирин, Родопи и др.)</li>
+                <li><strong>Специализирани подкатегории:</strong> Защитени територии и реки от 250те обекта.</li>
+                <li><strong>Градове в България:</strong> Пълен списък от 257 града, организирани в 7 региона за по-лесно запаметяване.</li>
+              </ul>
+            </section>
+
+            <footer className="pt-2">
+              <p className="text-sm">
+                Разработено от <strong className="text-slate-900">Борислав Дочев</strong> от <strong>НПМГ</strong> за подпомагане на интерактивното обучение по география.
+              </p>
+              
+              <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] tracking-widest text-slate-400 font-bold">
+                <span>Данни: OpenStreetMap</span>
+                <span>Source code: <a href="https://github.com/kupichka/vasilka-obekti" target="_blank" className="text-blue-600 hover:underline font-medium">GitHub</a></span>
+              </div>
+            </footer>
+		</div>
+	</div>
   </body>
 </html>
