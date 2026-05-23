@@ -217,11 +217,13 @@ export default function App() {
           </button>
         </div>
         <div 
-          className={`grid transition-all duration-300 ease-in-out desktop-only ${
-            mode === "quiz" ? "grid-cols-[1fr] opacity-100 ml-4" : "grid-cols-[0fr] opacity-0 ml-0 delay-200"
+          className={`flex items-center overflow-hidden transition-all duration-300 ease-in-out desktop-only ${
+            mode === "quiz" 
+              ? "w-[90px] opacity-100 ml-4" 
+              : "w-0 opacity-0 ml-0 pointer-events-none delay-200"
           }`}
         >
-          <div className="overflow-hidden whitespace-nowrap font-mono font-bold text-slate-700 pr-4 ml-[4.5px]">
+          <div className="whitespace-nowrap font-mono font-bold text-slate-700 pl-1">
             Точки: {score}
           </div>
         </div>
