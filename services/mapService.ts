@@ -25,7 +25,7 @@ class MapService {
   private hoveredFeatureId: string | null = null; 
 
   private filteredIds = new Set<string>();
-  private currentRegion: string = "All";
+  private currentRegions: string[] = ["All"];
 
   private darkTiles: boolean = true;
   private showLabels: boolean = true;
@@ -188,7 +188,7 @@ class MapService {
         extent: 4096, 
         buffer: 128 
       });
-      this.setRegion("All");
+      this.setRegions(["All"]);
       this.isReady = true;
 
       if (this.map && !this.tileLayer) {
@@ -248,7 +248,7 @@ class MapService {
     // 2. Distribute features into their respective style buckets
     for (const feature of vtTile.features) {
       const vid = feature.tags?.['@id']?.toString() || feature.id?.toString() || feature.tags?.__id?.toString();
-      const isFiltered = this.currentRegion !== "All" && (!vid || !this.filteredIds.has(vid));
+      const isFiltered = !this.currentRegions.includes("All") && (!vid || !this.filteredIds.has(vid));
       if (isFiltered) continue;
 
       const isSelected = vid === this.selectedFeatureId;
@@ -407,28 +407,36 @@ class MapService {
     this.tileLayer?.redraw(); 
   }
 
-  setRegion(region: string) {
-    this.currentRegion = region || "All";
-    this.filteredIds.clear();
-
-    if (this.currentRegion === "All") {
+  setRegions(regions: string | string[]) {
+    const regionArray = Array.isArray(regions) ? regions : [regions || "All"];
+    
+    if (regionArray.length === 0 || regionArray.includes("All")) {
+      this.currentRegions = ["All"];
+      this.filteredIds.clear();
       for (const id of this.featureMap.keys()) this.filteredIds.add(id);
     } else {
+      this.currentRegions = regionArray;
+      this.filteredIds.clear();
+
       const propKeys = ["region", "oblast", "area", "admin", "regionName"];
-      const target = this.currentRegion.toLowerCase().trim();
+      // Normalize all target regions for comparison
+      const targets = this.currentRegions.map(r => r.toLowerCase().trim());
 
       for (const [id, f] of this.featureMap) {
         const props = f.properties || {};
+        let matchFound = false;
 
         for (const k of propKeys) {
+          if (matchFound) break; // Skip checking other keys if we already matched
           const value = props[k];
           if (!value) continue;
 
           const values = Array.isArray(value) ? value : [value];
 
-          if (values.some(v => String(v).toLowerCase().trim() === target)) {
+          // Check if ANY of the feature's regions match ANY of our target regions
+          if (values.some(v => targets.includes(String(v).toLowerCase().trim()))) {
             this.filteredIds.add(id);
-            break;
+            matchFound = true;
           }
         }
       }
@@ -452,7 +460,7 @@ class MapService {
     this.updateHighlightLayer();
   }
 
-  renderFilteredFeatures(r: string) { this.setRegion(r); }
+  renderFilteredFeatures(r: string | string[]) { this.setRegions(r); }
 
   private findFeatureAt(lat: number, lng: number): GeoFeature | null {
     if (!this.map) return null;
@@ -486,7 +494,7 @@ class MapService {
     // 1. Categorize matches
     for (const match of matches) {
       const f = match.feature;
-      if (this.currentRegion !== "All" && !this.filteredIds.has(this.getFeatureId(f))) continue;
+      if (!this.currentRegions.includes("All") && !this.filteredIds.has(this.getFeatureId(f))) continue;
 
       const type = f.geometry.type;
       if (type === "Point") points.push(f);
@@ -734,11 +742,14 @@ class MapService {
     return L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
   }
 
-  public flyToRegion(region: string) {
-    if(DEBUG) this.logEnter("flyToRegion");
+  // Replace the existing flyToRegion method with this:
+  public flyToRegions(regions: string | string[]) {
+    if(DEBUG) this.logEnter("flyToRegions");
     if (!this.map || this.featureMap.size === 0) return;
 
-    if (region === "All") {
+    const regionArray = Array.isArray(regions) ? regions : [regions || "All"];
+
+    if (regionArray.length === 0 || regionArray.includes("All")) {
       // Default view for the whole dataset (Bulgaria coordinates)
       this.map.flyTo([42.7339, 25.4858], 8, { duration: 1.0 });
       return;
@@ -746,22 +757,20 @@ class MapService {
 
     const bounds = L.latLngBounds([]);
     const propKeys = ["region", "oblast", "area", "admin", "regionName"];
+    const targets = regionArray.map(r => r.toLowerCase().trim());
 
     this.featureMap.forEach((f) => {
       const props = f.properties || {};
       let match = false;
 
       for (const k of propKeys) {
+        if (match) break;
         const value = props[k];
+        if (!value) continue;
 
-        if (Array.isArray(value)) {
-          if (value.some((r: string) => r.toLowerCase() === region.toLowerCase())) {
-            match = true;
-            break;
-          }
-        } else if (value?.toString().toLowerCase() === region.toLowerCase()) {
+        const values = Array.isArray(value) ? value : [value];
+        if (values.some(v => targets.includes(String(v).toLowerCase().trim()))) {
           match = true;
-          break;
         }
       }
 

@@ -178,7 +178,7 @@ export default function App() {
     setCurrentRegion(region)
     quizEngine.setRegion(region);
     mapService.renderFilteredFeatures(region);
-    mapService.flyToRegion(region);
+    mapService.flyToRegions(region);
     if (mode === "quiz") startNewQuestion();
   };
 
@@ -201,7 +201,7 @@ export default function App() {
         </div>
       )}
 
-      <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out`}>
+      <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out z-10`}>
         <div className="flex p-1">
           <button 
             onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
@@ -233,7 +233,7 @@ export default function App() {
       <>
         {/* DESKTOP */}
         <div 
-          className={`desktop-only absolute top-24 left-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs transition-all duration-400 ease-out origin-top
+          className={`desktop-only absolute top-20 left-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-xs transition-all duration-400 ease-out origin-top z-5
             ${mode === "quiz" && target 
               ? "opacity-100 -translate-x-1/2 translate-y-0 pointer-events-auto delay-200" 
               : "opacity-0 -translate-x-1/2 -translate-y-6 scale-95 pointer-events-none"
@@ -255,7 +255,7 @@ export default function App() {
 
         {/* MOBILE */}
         <div 
-          className={`mobile-only fixed top-20 left-1/2 w-[95%] z-[1000] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+          className={`mobile-only fixed top-16 left-1/2 w-[calc(100%-1rem)] z-[1000] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
             ${mode === "quiz" && target 
               ? "opacity-100 -translate-x-1/2 pointer-events-auto" 
               : "opacity-0 -translate-x-[150%] pointer-events-none"
@@ -281,7 +281,7 @@ export default function App() {
       </>
 
       {/* DESKTOP REGION SELECTOR */}
-      <div className="desktop-only absolute top-4 right-4 z-[1000] bg-white p-2 border border-slate-200">
+      <div className="desktop-only absolute top-2 right-2 z-[1000] bg-white p-2 border border-slate-200">
         <label className="text-xs font-bold text-slate-400 block mb-1 px-1 tracking-tighter uppercase" aria-label="Избери област">ИЗБЕРИ ОБЛАСТ</label>
         <select
           value={currentRegion}
@@ -340,7 +340,7 @@ export default function App() {
 
       {/* Info button - Positioned top-left like the old zoom buttons */}
       <button 
-        className="absolute top-4 left-4 z-[1001] w-8 h-8 bg-white border-2 border-slate-200 rounded-md font-serif font-bold hover:bg-slate-50 shadow-md"
+        className="absolute top-3 left-3 z-[1001] w-8 h-8 bg-white border-2 border-slate-200 rounded-md font-serif font-bold hover:bg-slate-50 shadow-md"
         onClick={() => setShowAbout(true)}
         aria-label="Show Information"
       >

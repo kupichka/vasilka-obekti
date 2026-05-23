@@ -7,7 +7,7 @@ interface Props {
 export default function InfoPanel({ feature }: Props) {
   if (!feature) {
     return (
-      <div className="absolute bottom-4 left-4 z-[1000] bg-white p-4 rounded shadow border-slate-200">
+      <div className="absolute bottom-2 left-2 z-[1000] bg-white p-4 rounded shadow border-slate-200">
         <p>Натисни обект</p>
       </div>
     )
@@ -37,7 +37,7 @@ export default function InfoPanel({ feature }: Props) {
     ? visibleRegions.join(", ")
     : null
   return (
-    <div className="absolute bottom-4 left-4 z-[1000] bg-white p-4 max-w-sm border-slate-200">
+    <div className="absolute bottom-2 left-2 z-[1000] bg-white p-4 max-w-sm border-slate-200">
       <h2 className="text-lg font-bold">{name}</h2>
       <p className="text-sm text-gray-500">{category}</p>
       {formattedRegion && <p className="text-sm">{formattedRegion}</p>}
