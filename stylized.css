@@ -1,5 +1,5 @@
 /* Stylized dark sharp UI overrides - scoped under .stylized */
-.stylized {
+:root {
   --bg-primary: #211735;
   --bg-secondary: #281e3f;
   --panel-bg: #281e3f;
@@ -92,7 +92,7 @@ html, body {
   background: linear-gradient(180deg, rgba(40,30,63,0.95), rgba(33,23,53,0.95));
   color: var(--text-color) !important;
   border: 2px solid var(--button-selected-border-color);
-  box-shadow: -5px 0 var(--button-left-border-color), 0 -5px var(--button-top-border-color), 5px 0 var(--button-right-border-color), 0 5px var(--button-bottom-border-color);
+  /* box-shadow: -5px 0 var(--button-left-border-color), 0 -5px var(--button-top-border-color), 5px 0 var(--button-right-border-color), 0 5px var(--button-bottom-border-color); */
   transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 

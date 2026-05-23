@@ -57,12 +57,22 @@ class QuizEngine {
         this.currentPoolIds = new Set(this.featureMap.keys());
     }
 
-    setRegion(region: string | "All") {
-        if (region === "All") {
+    setRegions(regions: string[]) {
+        this.currentPoolIds.clear();
+
+        if (regions.includes("All") || regions.length === 0) {
+            // If "All" is selected or array is empty, use all available features
             this.currentPoolIds = new Set(this.featureMap.keys());
         } else {
-            this.currentPoolIds = new Set(this.featuresByRegion.get(region) || []);
+            // Combine the feature IDs from all selected regions
+            regions.forEach(region => {
+                const regionIds = this.featuresByRegion.get(region);
+                if (regionIds) {
+                    regionIds.forEach(id => this.currentPoolIds.add(id));
+                }
+            });
         }
+        
         this.deferredQueue = [];
         this.generateNewPermutation();
     }
