@@ -473,8 +473,8 @@ export default function App() {
                     onClick={() => handleToggleAll("cities")}
                     className={`text-[11px] px-2.5 py-0.5 rounded-full transition-all text-red ${
                       activeTab === "cities" && ALL_CITIES.every(r => currentRegions.includes(r))
-                        ? 'bg-blue-600 text-white shadow-sm border-slate-200 font-bold' 
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        ? 'bg-blue-600 text-white shadow-sm font-bold' 
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
                     }`}
                   >
                     Всички (257)
@@ -530,10 +530,10 @@ export default function App() {
                   </label>
                   <button 
                     onClick={() => handleToggleAll("geo")}
-                    className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold transition-all ${
+                    className={`text-[11px] px-2.5 py-0.5 rounded-full transition-all ${
                       activeTab === "geo" && ALL_GEO.every(r => currentRegions.includes(r))
                         ? 'bg-emerald-600 text-white shadow-sm font-bold' 
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
                     }`}
                   >
                     Всички
