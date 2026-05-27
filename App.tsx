@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import MapView from "./components/MapView"
 import InfoPanel from "./components/InfoPanel"
+import L from 'leaflet'
 import { quizEngine } from "./services/quizEngine"
 import { mapService } from "./services/mapService"
 import type { GeoFeature } from "./types/geo"
@@ -32,6 +33,11 @@ const getSavedScore = (): number => {
   return saved ? parseInt(saved, 10) : 0;
 };
 
+// const getSavedGuessScore = (): number => {
+//   const saved = localStorage.getItem("vasilka_guess_score");
+//   return saved ? parseInt(saved, 10) : 0;
+// };
+
 const getDarkTiles = (): boolean => {
   const saved = localStorage.getItem("vasilka_tiles");
   return saved === "true";
@@ -40,6 +46,11 @@ const getDarkTiles = (): boolean => {
 const getLabels = (): boolean => {
   const saved = localStorage.getItem("vasilka_labels");
   return saved !== "false";
+};
+
+const getSavedGuessEnabled = (): boolean => {
+  const saved = localStorage.getItem("vasilka_guess_enabled");
+  return saved === "true";
 };
 
 const REGION_CATEGORIES = {
@@ -77,10 +88,14 @@ export default function App() {
   const [selected, setSelected] = useState<GeoFeature | null>(null)
   const [target, setTarget] = useState<GeoFeature | null>(null)
   const [score, setScore] = useState<number>(getSavedScore)
+  // const [guessScore, setGuessScore] = useState<number>(getSavedGuessScore());
+  const [isGuessing, setIsGuessing] = useState<boolean>(false)
+  const [tempGuesses, setTempGuesses] = useState<Array<{lat:number,lng:number}>>([])
   const [isSpoiled, setIsSpoiled] = useState(false)
   const [feedback, setFeedback] = useState<{ msg: string; type: "success" | "error" } | null>(null)
   const [showLabels, setShowLabels] = useState<boolean>(getLabels)
   const [darkTiles, setDarkTiles] = useState<boolean>(getDarkTiles)
+  const [guessEnabledSetting, setGuessEnabledSetting] = useState<boolean>(getSavedGuessEnabled)
   const [isDataReady, setIsDataReady] = useState(false);
   const loadedDataType = useRef<"Objects" | "Cities">("Objects");
   const [showAbout, setShowAbout] = useState(false);
@@ -138,6 +153,10 @@ export default function App() {
     mapService.setTileLayer(showLabels)
     localStorage.setItem("vasilka_labels", showLabels.toString());
   }, [showLabels])
+
+  useEffect(() => {
+    localStorage.setItem("vasilka_guess_enabled", guessEnabledSetting.toString());
+  }, [guessEnabledSetting])
 
   useEffect(() => {
     localStorage.setItem("vasilka_mode", mode);
@@ -200,15 +219,135 @@ export default function App() {
   }, [mode, target, isSpoiled, startNewQuestion, showToast])
 
   // show hint / reveal target feature
+  // show hint / reveal target feature
   const handleShowHint = () => {
+    // If guess feature is enabled and we're in quiz+cities, use guess flow
+    if (guessEnabledSetting && mode === "quiz" && activeTab === "cities") {
+      // Prevent clicking during the 3-second result wait
+      if (!isGuessing) return; 
+
+      // Lock-in the guess
+      if (tempGuesses.length === 0) {
+        showToast("Поставете поне един маркер преди заключване.", "error")
+        return
+      }
+
+      const final = tempGuesses[tempGuesses.length - 1]
+      if (!final || !target) return
+
+      const targetCentroid = getFeatureCentroid(target)
+      const distanceKm = haversineDistanceKm([final.lat, final.lng], [targetCentroid.lat, targetCentroid.lng])
+      const points = computeGuessPoints(distanceKm)
+
+      setScore(s => s + points)
+      showToast(`+${points} (${distanceKm.toFixed(1)} km)`, "success")
+
+      // Show final visuals (skip zoom if max points)
+      const maxPoints = points === 1000
+      mapService.showFinalGuessAndTarget(L.latLng(final.lat, final.lng), L.latLng(targetCentroid.lat, targetCentroid.lng), maxPoints)
+      
+      // Stop accepting clicks, but keep the map empty of objects
+      setIsGuessing(false)
+      mapService.setGuessClickHandler(undefined)
+
+      // Clear temp markers and visuals after a short delay, then proceed to next question
+      setTimeout(() => {
+        mapService.clearGuessVisuals()
+        mapService.clearTempGuessMarkers()
+      }, 3000)
+      setTimeout(() => startNewQuestion(), 2600)
+      return
+    }
+
+    // Fallback: original hint/give-up behavior
     if (target?.properties['@id']) {
       setIsSpoiled(true)
-      // highlight and zoom
       mapService.highlightFeatureById(target.properties['@id'])
       mapService.zoomToFeatureById(target.properties['@id'])
-      // mark as given up in quiz engine (optional: you already handle this on correct click when spoiled)
       quizEngine.handleGiveUp(target)
     }
+  }
+
+  // Handler called by mapService when a temp guess marker is added
+  const onMapGuessClick = useCallback((latlng: {lat:number,lng:number}) => {
+    setTempGuesses(prev => [...prev, latlng])
+  }, [])
+
+  // Auto-manage Guess Mode based on settings and the current question
+  useEffect(() => {
+    const shouldUseGuessMode = guessEnabledSetting && mode === "quiz" && activeTab === "cities";
+
+    if (shouldUseGuessMode && target) {
+      // Start guessing for this specific round
+      setIsGuessing(true);
+      setTempGuesses([]);
+      mapService.enableGuessMode();
+      mapService.setGuessClickHandler(onMapGuessClick);
+    } else {
+      // Cleanly exit guess mode entirely
+      setIsGuessing(false);
+      mapService.disableGuessMode();
+    }
+  }, [guessEnabledSetting, mode, activeTab, target, onMapGuessClick]);
+
+  // Listen for Spacebar to lock in the guess
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if spacebar is pressed
+      if (e.code === "Space") {
+        // Only trigger if we are actively in the guessing mode
+        if (guessEnabledSetting && mode === "quiz" && activeTab === "cities" && isGuessing) {
+          e.preventDefault(); // Prevents the browser from scrolling down
+          handleShowHint();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [guessEnabledSetting, mode, activeTab, isGuessing, handleShowHint]);
+
+  // Haversine distance in km
+  function haversineDistanceKm(a: [number, number], b: [number, number]) {
+    const toRad = (v: number) => v * Math.PI / 180
+    const R = 6371
+    const dLat = toRad(b[0]-a[0])
+    const dLon = toRad(b[1]-a[1])
+    const lat1 = toRad(a[0])
+    const lat2 = toRad(b[0])
+    const sinDLat = Math.sin(dLat/2)
+    const sinDLon = Math.sin(dLon/2)
+    const aa = sinDLat*sinDLat + sinDLon*sinDLon * Math.cos(lat1) * Math.cos(lat2)
+    const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa))
+    return R * c
+  }
+
+  // Sigmoid-based scoring: full score up to 10 km, then smooth decay
+  function computeGuessPoints(distanceKm: number) {
+    const basePoints = 1000
+    const fullKm = 10
+    if (distanceKm <= fullKm) return basePoints
+    const scale = 50 // controls spread of the sigmoid
+    const k = 0.12
+    const dPrime = (distanceKm - fullKm) / scale
+    const points = Math.round(basePoints / (1 + Math.exp(k * dPrime)))
+    return Math.max(0, points)
+  }
+
+  // Compute a simple centroid for a feature (fallbacks)
+  function getFeatureCentroid(f: GeoFeature) {
+    try {
+      const geom: any = f.geometry
+      if (!geom) return { lat: 42.7339, lng: 25.4858 }
+      if (geom.type === 'Point') return { lat: geom.coordinates[1], lng: geom.coordinates[0] }
+      // For Polygon/MultiPolygon, pick the first coordinate ring center
+      const coords = geom.type === 'Polygon' ? geom.coordinates[0] : (geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : null)
+      if (coords && coords.length > 0) {
+        const sum = coords.reduce((acc: any, c: any) => ({ lat: acc.lat + c[1], lng: acc.lng + c[0] }), { lat: 0, lng: 0 })
+        return { lat: sum.lat / coords.length, lng: sum.lng / coords.length }
+      }
+    } catch (e) {}
+    return { lat: 42.7339, lng: 25.4858 }
   }
 
   // Handle manual tab switching via the radio buttons
@@ -376,13 +515,13 @@ export default function App() {
             onClick={handleShowHint} 
             className="bg-slate-800 text-white text-xs px-4 py-1.5 hover:bg-slate-700 transition-colors uppercase tracking-tighter"
           >
-            Покажи (без точка)
+            {(guessEnabledSetting && mode === 'quiz' && activeTab === 'cities') ? (isGuessing ? 'Заключи' : 'Очаквайте...') : 'Покажи (без точка)'}
           </button>
         </div>
 
         {/* MOBILE */}
         <div 
-          className={`mobile-only fixed top-16 left-1/2 w-[calc(100%-1rem)] z-[1000] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
+          className={`mobile-only fixed top-16 left-1/2 w-[calc(100%-1.5rem)] z-[1000] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
             ${mode === "quiz" && target 
               ? "opacity-100 -translate-x-1/2 pointer-events-auto" 
               : "opacity-0 -translate-x-[150%] pointer-events-none"
@@ -400,7 +539,7 @@ export default function App() {
                   onClick={handleShowHint} 
                   className="bg-[#a24e53] text-white text-[9px] px-2 py-1 uppercase font-bold border border-[#73374e] active:scale-95 transition-transform"
                 >
-                  Покажи
+                  {(guessEnabledSetting && mode === 'quiz' && activeTab === 'cities') ? (isGuessing ? 'Заключи' : 'Очаквайте...') : 'Покажи'}
                 </button>
             </div>
           </div>
@@ -632,6 +771,19 @@ export default function App() {
                     Тъмна
                   </span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={guessEnabledSetting}
+                    onChange={(e) => setGuessEnabledSetting(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#ffecd6]/30 bg-black/20 focus:ring-[#ffecd6]/30 accent-[#ffecd6] cursor-pointer"
+                  />
+                  <span className={`text-xs font-semibold select-none transition-colors ${
+                    guessEnabledSetting ? 'text-green-600' : 'text-slate-400'
+                  }`}>
+                    Geoguessr mode
+                  </span>
+                </label>
               </div>
             </section>
 
@@ -646,7 +798,7 @@ export default function App() {
         <div className="loading-screen">Preparing Geographic Data...</div>
       )}
 
-      <InfoPanel feature={selected} />
+      {!isGuessing && <InfoPanel feature={selected} />}
 
       {/* Info button - Positioned top-left */}
       <button 

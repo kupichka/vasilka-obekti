@@ -24,6 +24,14 @@ class MapService {
   private highlightedFeatureId: string | null = null; 
   private hoveredFeatureId: string | null = null; 
 
+  // Guess mode support
+  private guessMode: boolean = false;
+  private guessClickHandler?: (latlng: { lat: number; lng: number }) => void;
+  private tempGuessLayer?: L.LayerGroup;
+  private finalGuessMarker?: L.Marker;
+  private targetMarker?: L.CircleMarker;
+  private guessLine?: L.Polyline;
+
   private filteredIds = new Set<string>();
   private currentRegions: string[] = ["All"];
 
@@ -65,6 +73,78 @@ class MapService {
     this.onFeatureClick = handler;
   }
 
+  // Guess-mode APIs
+  public setGuessClickHandler(handler?: (latlng: { lat: number; lng: number }) => void) {
+    this.guessClickHandler = handler;
+  }
+
+  public enableGuessMode() {
+    this.guessMode = true;
+    // Clear any existing temporary visuals
+    this.clearTempGuessMarkers();
+    this.clearGuessVisuals();
+    this.scheduleRedraw();
+  }
+
+  public disableGuessMode() {
+    this.guessMode = false;
+    // Keep final visuals if present, but clear temporary markers
+    this.clearTempGuessMarkers();
+    this.guessClickHandler = undefined;
+    this.scheduleRedraw();
+  }
+
+  public addTempGuessMarker(latlng: L.LatLng) {
+    if (!this.map) return;
+    if (!this.tempGuessLayer) this.tempGuessLayer = L.layerGroup().addTo(this.map);
+    this.clearTempGuessMarkers();
+    const marker = L.circleMarker(latlng, {
+      radius: 6,
+      color: '#f59e0b',
+      fillColor: '#f59e0b',
+      fillOpacity: 1,
+      pane: 'guessPane'
+    } as any).addTo(this.tempGuessLayer);
+    return marker;
+  }
+
+  public clearTempGuessMarkers() {
+    if (this.tempGuessLayer) {
+      this.tempGuessLayer.clearLayers();
+    }
+  }
+
+  public showFinalGuessAndTarget(guessLatLng: L.LatLngExpression, targetLatLng: L.LatLngExpression, skipZoom: boolean = false) {
+    if (!this.map) return;
+    this.clearGuessVisuals();
+
+    this.finalGuessMarker = L.marker(guessLatLng as L.LatLngExpression, { pane: 'guessPane' } as any).addTo(this.map);
+    this.targetMarker = L.circleMarker(targetLatLng as L.LatLngExpression, {
+      radius: 8,
+      color: '#16a34a',
+      fillColor: '#16a34a',
+      fillOpacity: 0.9,
+      pane: 'guessPane'
+    } as any).addTo(this.map);
+
+    this.guessLine = L.polyline([guessLatLng as any, targetLatLng as any], { color: '#60a5fa', weight: 2, pane: 'guessPane' } as any).addTo(this.map);
+
+    if (!skipZoom) {
+      try {
+        const bounds = L.latLngBounds([guessLatLng as any, targetLatLng as any]);
+        if (bounds.isValid()) this.map.flyToBounds(bounds.pad(0.25), { duration: 1.0 });
+      } catch (e) {}
+    }
+  }
+
+  public clearGuessVisuals() {
+    try {
+      if (this.finalGuessMarker) { this.map?.removeLayer(this.finalGuessMarker); this.finalGuessMarker = undefined; }
+      if (this.targetMarker) { this.map?.removeLayer(this.targetMarker); this.targetMarker = undefined; }
+      if (this.guessLine) { this.map?.removeLayer(this.guessLine); this.guessLine = undefined; }
+    } catch (e) {}
+  }
+
   init(container: HTMLDivElement, center: [number, number], zoom: number) {
     if(DEBUG) this.logEnter("init");
     if (this.map){ 
@@ -92,9 +172,26 @@ class MapService {
       fp.style.pointerEvents = 'none'; 
     }
 
+    // Pane for temporary guess markers and final guess visuals
+    if (!this.map.getPane('guessPane')) {
+      const gp = this.map.createPane('guessPane');
+      gp.style.zIndex = '680';
+      gp.style.pointerEvents = 'none';
+    }
+    // Layer group for temporary guess markers
+    this.tempGuessLayer = L.layerGroup().addTo(this.map);
+
     this.setTileLayer(this.showLabels);
 
     this.map.on("click", (e: L.LeafletMouseEvent) => {
+      if (this.guessMode) {
+        // In guess mode, add a temporary guess marker and notify handler
+        const { lat, lng } = e.latlng;
+        this.addTempGuessMarker(e.latlng);
+        this.guessClickHandler?.({ lat, lng });
+        return;
+      }
+
       const feature = this.findFeatureAt(e.latlng.lat, e.latlng.lng);
       this.selectedFeatureId = feature ? this.getFeatureId(feature) : null;
       this.onFeatureClick?.(feature);
@@ -219,6 +316,13 @@ class MapService {
     const vtTile = this.tileIndex.getTile(coords.z, coords.x, coords.y);
     if (!vtTile) {
       if (DEBUG) this.logExit("drawTileCanvas", "vtTile is stupid");
+      ctx.restore();
+      return;
+    }
+
+    // If we are in guess mode, do not render feature tiles (hide objects)
+    if (this.guessMode) {
+      if (DEBUG) this.logExit("drawTileCanvas", "guessMode active - skipping feature render");
       ctx.restore();
       return;
     }
@@ -464,6 +568,7 @@ class MapService {
 
   private findFeatureAt(lat: number, lng: number): GeoFeature | null {
     if (!this.map) return null;
+    if (this.guessMode) return null; // Disable feature hit-testing while in guess mode
     const cp = this.map.latLngToContainerPoint([lat, lng]);
     
     const zoom = this.map.getZoom();
@@ -790,6 +895,12 @@ class MapService {
 
   destroy() { 
     if(DEBUG) this.logEnter("destroy");
+    // Clear guess visuals and temporary layers
+    this.clearGuessVisuals();
+    if (this.tempGuessLayer) {
+      try { this.tempGuessLayer.clearLayers(); } catch (e) {}
+      this.tempGuessLayer = undefined;
+    }
     this.map?.remove(); 
     this.map = undefined; 
   }
