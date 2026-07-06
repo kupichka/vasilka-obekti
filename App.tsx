@@ -10,6 +10,7 @@ import type { GeoFeature } from "./types/geo"
 import "./stylized.css"
 import rawData from "./data/objects2_cleaned.json";
 import villagesData from "./data/towns_cleaned.json";
+import vendingData from "./data/vending_cleaned.json";
 
 // Helper to validate mode
 const getSavedMode = (): "learn" | "quiz" => {
@@ -53,6 +54,8 @@ const getSavedGuessEnabled = (): boolean => {
   return saved === "true";
 };
 
+type TabId = "geo" | "cities" | "vending";
+
 const REGION_CATEGORIES = {
   "Градове": [
     "Градове 1", "Градове 2", "Градове 3", "Градове 4", "Градове 5", 
@@ -65,11 +68,15 @@ const REGION_CATEGORIES = {
   ],
   "Други": [
     "Защитени области (27)", "Реки (32)"
+  ],
+  "Вендинг машини": [
+    
   ]
 };
 
 const ALL_CITIES = REGION_CATEGORIES["Градове"];
 const ALL_GEO = [...REGION_CATEGORIES["Физико-географски региони"], ...REGION_CATEGORIES["Други"]];
+const ALL_VENDING = REGION_CATEGORIES["Вендинг машини"];
 
 export default function App() {
   const [mode, setMode] = useState<"learn" | "quiz">(getSavedMode)
@@ -77,12 +84,13 @@ export default function App() {
   const initialSavedRegions = getSavedRegions().filter(r => r !== "All" && r !== "Градове (257)");
   const isInitialCities = initialSavedRegions.some(r => r.startsWith("Градове"));
 
-  const [activeTab, setActiveTab] = useState<"geo" | "cities">(isInitialCities ? "cities" : "geo");
+  const [activeTab, setActiveTab] = useState<TabId>(isInitialCities ? "cities" : "geo"); 
   const [currentRegions, setCurrentRegions] = useState<string[]>(initialSavedRegions.length > 0 ? initialSavedRegions : ALL_GEO);
   
   // Memories for remembering selections when toggling categories
   const [geoHistory, setGeoHistory] = useState<string[]>(isInitialCities ? ALL_GEO : (initialSavedRegions.length ? initialSavedRegions : ALL_GEO));
   const [cityHistory, setCityHistory] = useState<string[]>(isInitialCities && initialSavedRegions.length ? initialSavedRegions : ALL_CITIES);
+  const [vendingHistory, setVendingHistory] = useState<string[]>(ALL_VENDING); // initial selection
   
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [selected, setSelected] = useState<GeoFeature | null>(null)
@@ -218,9 +226,51 @@ export default function App() {
     }
   }, [mode, target, isSpoiled, startNewQuestion, showToast])
 
+  // Haversine distance in km
+  function haversineDistanceKm(a: [number, number], b: [number, number]) {
+    const toRad = (v: number) => v * Math.PI / 180
+    const R = 6371
+    const dLat = toRad(b[0]-a[0])
+    const dLon = toRad(b[1]-a[1])
+    const lat1 = toRad(a[0])
+    const lat2 = toRad(b[0])
+    const sinDLat = Math.sin(dLat/2)
+    const sinDLon = Math.sin(dLon/2)
+    const aa = sinDLat*sinDLat + sinDLon*sinDLon * Math.cos(lat1) * Math.cos(lat2)
+    const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa))
+    return R * c
+  }
+
+  // Sigmoid-based scoring: full score up to 10 km, then smooth decay
+  function computeGuessPoints(distanceKm: number) {
+    const basePoints = 1000
+    const fullKm = 10
+    if (distanceKm <= fullKm) return basePoints
+    const scale = 50 // controls spread of the sigmoid
+    const k = 0.12
+    const dPrime = (distanceKm - fullKm) / scale
+    const points = Math.round(basePoints / (1 + Math.exp(k * dPrime)))
+    return Math.max(0, points)
+  }
+
+  // Compute a simple centroid for a feature (fallbacks)
+  function getFeatureCentroid(f: GeoFeature) {
+    try {
+      const geom: any = f.geometry
+      if (!geom) return { lat: 42.7339, lng: 25.4858 }
+      if (geom.type === 'Point') return { lat: geom.coordinates[1], lng: geom.coordinates[0] }
+      // For Polygon/MultiPolygon, pick the first coordinate ring center
+      const coords = geom.type === 'Polygon' ? geom.coordinates[0] : (geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : null)
+      if (coords && coords.length > 0) {
+        const sum = coords.reduce((acc: any, c: any) => ({ lat: acc.lat + c[1], lng: acc.lng + c[0] }), { lat: 0, lng: 0 })
+        return { lat: sum.lat / coords.length, lng: sum.lng / coords.length }
+      }
+    } catch (e) {}
+    return { lat: 42.7339, lng: 25.4858 }
+  }
+  
   // show hint / reveal target feature
-  // show hint / reveal target feature
-  const handleShowHint = () => {
+  const handleShowHint = useCallback(() => {
     // If guess feature is enabled and we're in quiz+cities, use guess flow
     if (guessEnabledSetting && mode === "quiz" && activeTab === "cities") {
       // Prevent clicking during the 3-second result wait
@@ -266,7 +316,7 @@ export default function App() {
       mapService.zoomToFeatureById(target.properties['@id'])
       quizEngine.handleGiveUp(target)
     }
-  }
+  }, [guessEnabledSetting, mode, activeTab, isGuessing, tempGuesses, target, showToast, startNewQuestion])
 
   // Handler called by mapService when a temp guess marker is added
   const onMapGuessClick = useCallback((latlng: {lat:number,lng:number}) => {
@@ -307,53 +357,19 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [guessEnabledSetting, mode, activeTab, isGuessing, handleShowHint]);
 
-  // Haversine distance in km
-  function haversineDistanceKm(a: [number, number], b: [number, number]) {
-    const toRad = (v: number) => v * Math.PI / 180
-    const R = 6371
-    const dLat = toRad(b[0]-a[0])
-    const dLon = toRad(b[1]-a[1])
-    const lat1 = toRad(a[0])
-    const lat2 = toRad(b[0])
-    const sinDLat = Math.sin(dLat/2)
-    const sinDLon = Math.sin(dLon/2)
-    const aa = sinDLat*sinDLat + sinDLon*sinDLon * Math.cos(lat1) * Math.cos(lat2)
-    const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa))
-    return R * c
-  }
-
-  // Sigmoid-based scoring: full score up to 10 km, then smooth decay
-  function computeGuessPoints(distanceKm: number) {
-    const basePoints = 1000
-    const fullKm = 10
-    if (distanceKm <= fullKm) return basePoints
-    const scale = 50 // controls spread of the sigmoid
-    const k = 0.12
-    const dPrime = (distanceKm - fullKm) / scale
-    const points = Math.round(basePoints / (1 + Math.exp(k * dPrime)))
-    return Math.max(0, points)
-  }
-
-  // Compute a simple centroid for a feature (fallbacks)
-  function getFeatureCentroid(f: GeoFeature) {
-    try {
-      const geom: any = f.geometry
-      if (!geom) return { lat: 42.7339, lng: 25.4858 }
-      if (geom.type === 'Point') return { lat: geom.coordinates[1], lng: geom.coordinates[0] }
-      // For Polygon/MultiPolygon, pick the first coordinate ring center
-      const coords = geom.type === 'Polygon' ? geom.coordinates[0] : (geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : null)
-      if (coords && coords.length > 0) {
-        const sum = coords.reduce((acc: any, c: any) => ({ lat: acc.lat + c[1], lng: acc.lng + c[0] }), { lat: 0, lng: 0 })
-        return { lat: sum.lat / coords.length, lng: sum.lng / coords.length }
-      }
-    } catch (e) {}
-    return { lat: 42.7339, lng: 25.4858 }
-  }
-
   // Handle manual tab switching via the radio buttons
-  const handleTabChange = (tab: "geo" | "cities") => {
+  const handleTabChange = (tab: "geo" | "cities" | "vending") => {
     if (activeTab === tab) return;
-
+    if (tab === "vending") {
+      setActiveTab("vending");
+      setCurrentRegions([...vendingHistory]);
+      quizEngine.setFeatures(vendingData);
+      mapService.setRawData(vendingData);
+      quizEngine.setRegions(vendingHistory);
+      mapService.renderFilteredFeatures(vendingHistory);
+      if (vendingHistory.length) mapService.flyToRegions(vendingHistory);
+      return;
+    }
     setActiveTab(tab);
     const newRegions = tab === "cities" ? [...cityHistory] : [...geoHistory];
     setCurrentRegions(newRegions);
@@ -376,8 +392,12 @@ export default function App() {
 
   // region change from dropdowns
   const handleToggleRegion = (region: string) => {
-    const isCityRegion = ALL_CITIES.includes(region) || region.startsWith("Градове");
-    const targetTab = isCityRegion ? "cities" : "geo";
+    const isVendingRegion = REGION_CATEGORIES["Вендинг машини"].includes(region)
+    const targetTab: TabId =
+      isVendingRegion ? "vending"
+      : (ALL_CITIES.includes(region) || region.startsWith("Градове"))
+        ? "cities"
+        : "geo"
     
     let baseRegions: string[] = [];
     
@@ -415,14 +435,22 @@ export default function App() {
     if (mode === "quiz") startNewQuestion(newRegions);
   };
 
-  const handleToggleAll = (tab: "geo" | "cities") => {
-    const allItems = tab === "geo" ? ALL_GEO : ALL_CITIES;
+  const handleToggleAll = (tab: TabId) => {
+    const allItems =
+      tab === "cities" ? ALL_CITIES :
+      tab === "vending" ? ALL_VENDING :
+      ALL_GEO
+
+    const dataset =
+      tab === "cities" ? villagesData :
+      tab === "vending" ? vendingData :
+      rawData
+    
     let newRegions: string[] = [];
     
     if (activeTab !== tab) {
       // If switching tabs via the "All" button, activate that tab and select everything
       setActiveTab(tab);
-      const dataset = tab === "cities" ? villagesData : rawData;
       loadedDataType.current = tab === "cities" ? "Cities" : "Objects";
       quizEngine.setFeatures(dataset);
       mapService.setRawData(dataset);
@@ -467,33 +495,35 @@ export default function App() {
         </div>
       )}
 
-      <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out z-10`}>
-        <div className="flex p-1">
-          <button 
-            onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
-            className={`px-6 py-2 mr-[30px] transition-all ${mode === "learn" ? "bg-white text-blue-600 font-bold" : "text-slate-500"}`}
+      {activeTab !== "vending" && (
+          <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-[1000] flex items-center header-toggle-container p-2 border border-slate-200 mobile-no-bg transition-all duration-400 ease-in-out z-10`}>
+          <div className="flex p-1">
+            <button 
+              onClick={() => { setMode("learn"); mapService.resetAllStyles(); }}
+              className={`px-6 py-2 mr-[30px] transition-all ${mode === "learn" ? "bg-white text-blue-600 font-bold" : "text-slate-500"}`}
+            >
+              Научи
+            </button>
+            <button 
+              onClick={() => { setMode("quiz"); startNewQuestion(); }}
+              className={`px-6 py-2 transition-all ${mode === "quiz" ? "bg-white text-orange-500 font-bold" : "text-slate-500"}`}
+            >
+              Тест
+            </button>
+          </div>
+          <div 
+            className={`flex items-center overflow-hidden transition-all duration-300 ease-in-out desktop-only ${
+              mode === "quiz" 
+                ? "w-[90px] opacity-100 ml-4" 
+                : "w-0 opacity-0 ml-0 pointer-events-none delay-200"
+            }`}
           >
-            Научи
-          </button>
-          <button 
-            onClick={() => { setMode("quiz"); startNewQuestion(); }}
-            className={`px-6 py-2 transition-all ${mode === "quiz" ? "bg-white text-orange-500 font-bold" : "text-slate-500"}`}
-          >
-            Тест
-          </button>
-        </div>
-        <div 
-          className={`flex items-center overflow-hidden transition-all duration-300 ease-in-out desktop-only ${
-            mode === "quiz" 
-              ? "w-[90px] opacity-100 ml-4" 
-              : "w-0 opacity-0 ml-0 pointer-events-none delay-200"
-          }`}
-        >
-          <div className="whitespace-nowrap font-mono font-bold text-slate-700 pl-1">
-            Точки: {score}
+            <div className="whitespace-nowrap font-mono font-bold text-slate-700 pl-1">
+              Точки: {score}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* QUIZ PROMPTS */}
       <>
@@ -729,6 +759,54 @@ export default function App() {
                       );
                     })}
                   </div>
+                </div>
+              </div>
+
+              {/* --- 3. VENDING MACHINES --- */}
+              <div className="transition-all duration-200">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="datasetTab"
+                      checked={activeTab === "vending"}
+                      onChange={() => handleTabChange("vending")}
+                      className="w-4 h-4 text-purple-600 focus:ring-purple-500/30 accent-purple-600 cursor-pointer"
+                    />
+                    <h3 className={`text-xs font-bold uppercase tracking-wider transition-colors ${
+                      activeTab === "vending" ? "text-slate-800" : "text-slate-400 group-hover:text-slate-600"
+                    }`}>
+                      Вендинг машини
+                    </h3>
+                  </label>
+                  {/* <button 
+                    onClick={() => handleToggleAll("vending")}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-full transition-all ${
+                      activeTab === "vending" && ALL_VENDING.every(r => currentRegions.includes(r))
+                        ? 'bg-emerald-600 text-white shadow-sm font-bold' 
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
+                    }`}
+                  >
+                    Всички
+                  </button> */}
+                </div>
+                <div className="flex flex-wrap gap-1.5 pl-6">
+                  {REGION_CATEGORIES["Вендинг машини"].map(region => {
+                    const isSelected = activeTab === "vending" && currentRegions.includes(region)
+                    return (
+                      <button
+                        key={region}
+                        onClick={() => handleToggleRegion(region)}
+                        className={`text-[12px] px-2.5 py-1 rounded-md border transition-all duration-150 ${
+                          isSelected
+                            ? "bg-purple-50 border-purple-200 text-purple-700 shadow-sm"
+                            : "bg-[#12121a] border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        {region}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
