@@ -43,9 +43,12 @@ class MapService {
   private lastMouseMove = 0;
 
   // User location support
-  private userLocationMarker?: L.Marker;
+  private userLocationMarker?: L.CircleMarker;
+  private userLocationPulseMarker?: L.CircleMarker;
   private userLocationLayer?: L.LayerGroup;
   private currentUserLocation?: { lat: number; lng: number };
+  private isUserLocationVisible: boolean = true;
+  private locationAnimationId?: number;
 
   private logEnter(fn: string) {
     console.log(`entered function ${fn}`);
@@ -919,51 +922,97 @@ class MapService {
     this.currentUserLocation = { lat, lng };
     
     if (!this.userLocationLayer) {
-      this.userLocationLayer = L.layerGroup().addTo(this.map);
+      this.userLocationLayer = L.layerGroup();
+      if(this.isUserLocationVisible){
+        this.userLocationLayer.addTo(this.map);
+      }
     }
     
-    if (this.userLocationMarker) {
-      this.userLocationMarker.setLatLng([lat, lng]);
+    if (this.userLocationMarker && this.userLocationPulseMarker) {
+      this.animateMarkerTo(lat, lng, 400);
+      // this.userLocationMarker.setLatLng([lat, lng]);
+      // this.userLocationPulseMarker.setLatLng([lat, lng]);
     } else {
       this.userLocationMarker = L.circleMarker([lat, lng], {
-        radius: 10,
-        fillColor: '#3b82f6',
-        color: '#1e40af',
+        radius: 6,
+        fillColor: '#530e71',
+        color: '#c517b9',
         weight: 2,
         opacity: 0.8,
         fillOpacity: 0.6
       }).addTo(this.userLocationLayer!);
       
       // Add a pulsing circle for better visibility
-      const pulseCircle = L.circleMarker([lat, lng], {
-        radius: 10,
+      this.userLocationPulseMarker = L.circleMarker([lat, lng], {
+        radius: 6,
         fillColor: 'transparent',
-        color: '#3b82f6',
+        color: '#3d0e93',
         weight: 1,
-        opacity: 0.4,
+        opacity: 0.75,
         className: 'pulse-circle'
       }).addTo(this.userLocationLayer!);
     }
   }
 
+  private animateMarkerTo(targetLat: number, targetLng: number, durationMs: number) {
+    if (!this.userLocationMarker || !this.userLocationPulseMarker) return;
+
+    const startPosition = this.userLocationMarker.getLatLng();
+    const startLat = startPosition.lat;
+    const startLng = startPosition.lng;
+    const startTime = performance.now();
+
+    // Cancel any running animation frames to avoid fighting over positions
+    if (this.locationAnimationId) {
+      cancelAnimationFrame(this.locationAnimationId);
+    }
+
+    const step = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / durationMs, 1);
+      
+      // Smooth ease-out quad curve so it slows down nicely at the end
+      const ease = progress * (2 - progress);
+      
+      const currentLat = startLat + (targetLat - startLat) * ease;
+      const currentLng = startLng + (targetLng - startLng) * ease;
+      
+      this.userLocationMarker?.setLatLng([currentLat, currentLng]);
+      this.userLocationPulseMarker?.setLatLng([currentLat, currentLng]);
+      
+      if (progress < 1) {
+        this.locationAnimationId = requestAnimationFrame(step);
+      }
+    };
+
+    this.locationAnimationId = requestAnimationFrame(step);
+  }
+
   public showUserLocation() {
+    this.isUserLocationVisible = true;
     if (this.userLocationLayer && this.map) {
       this.userLocationLayer.addTo(this.map);
     }
   }
 
   public hideUserLocation() {
+    this.isUserLocationVisible = false;
     if (this.userLocationLayer) {
       this.userLocationLayer.removeFrom(this.map!);
     }
   }
 
   public clearUserLocation() {
+    if (this.locationAnimationId) {
+      cancelAnimationFrame(this.locationAnimationId);
+      this.locationAnimationId = undefined;
+    }
     if (this.userLocationLayer) {
       try { this.userLocationLayer.clearLayers(); } catch (e) {}
       this.userLocationLayer = undefined;
     }
     this.userLocationMarker = undefined;
+    this.userLocationPulseMarker = undefined;
     this.currentUserLocation = undefined;
   }
 

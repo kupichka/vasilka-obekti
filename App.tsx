@@ -105,7 +105,7 @@ export default function App() {
   const [isDataReady, setIsDataReady] = useState(false);
   const loadedDataType = useRef<"Objects" | "Cities">("Objects");
   const [showAbout, setShowAbout] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // initial data load for quizEngine and mapService
   useEffect(() => {
@@ -151,26 +151,33 @@ export default function App() {
 
   // Geolocation tracking for vending machine mode
   useEffect(() => {
-    if (!isDataReady) return;
-    
-    if ("geolocation" in navigator) {
-      const handleSuccess = (position: GeolocationPosition) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ lat: latitude, lng: longitude });
-        mapService.setUserLocation(latitude, longitude);
-      };
+  if (!isDataReady) return;
 
-      const handleError = (error: GeolocationPositionError) => {
-        console.warn("Geolocation error:", error.message);
-      };
+  if ("geolocation" in navigator) {
+    const handleSuccess = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      mapService.setUserLocation(latitude, longitude);
+    };
 
-      navigator.geolocation.watchPosition(handleSuccess, handleError, {
+    const handleError = (error: GeolocationPositionError) => {
+      console.warn("Geolocation error:", error.message);
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      handleSuccess,
+      handleError,
+      {
         enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-      });
-    }
-  }, [isDataReady]);
+        timeout: 15000,
+        maximumAge: 10000
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }
+}, [isDataReady]);
 
   // keep mapService tile options in sync when toggles change
   useEffect(() => {
