@@ -105,6 +105,7 @@ export default function App() {
   const [isDataReady, setIsDataReady] = useState(false);
   const loadedDataType = useRef<"Objects" | "Cities">("Objects");
   const [showAbout, setShowAbout] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // initial data load for quizEngine and mapService
   useEffect(() => {
@@ -147,6 +148,29 @@ export default function App() {
     };
     loadData();
   }, []);
+
+  // Geolocation tracking for vending machine mode
+  useEffect(() => {
+    if (!isDataReady) return;
+    
+    if ("geolocation" in navigator) {
+      const handleSuccess = (position: GeolocationPosition) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        mapService.setUserLocation(latitude, longitude);
+      };
+
+      const handleError = (error: GeolocationPositionError) => {
+        console.warn("Geolocation error:", error.message);
+      };
+
+      navigator.geolocation.watchPosition(handleSuccess, handleError, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      });
+    }
+  }, [isDataReady]);
 
   // keep mapService tile options in sync when toggles change
   useEffect(() => {
@@ -223,6 +247,11 @@ export default function App() {
       }
     }
   }, [mode, target, isSpoiled, startNewQuestion, showToast])
+
+  // Handler for panning to user location
+  const handlePanToUserLocation = useCallback(() => {
+    mapService.flyToUserLocation();
+  }, []);
 
   // Haversine distance in km
   function haversineDistanceKm(a: [number, number], b: [number, number]) {
@@ -869,7 +898,11 @@ export default function App() {
 
       {/* Only mount MapView when data is actually indexed and ready */}
       {isDataReady ? (
-        <MapView onFeatureSelect={handleSelect} />
+        <MapView 
+          onFeatureSelect={handleSelect} 
+          isVendingMode={activeTab === "vending"}
+          onPanToUserLocation={handlePanToUserLocation}
+        />
       ) : (
         <div className="loading-screen">Preparing Geographic Data...</div>
       )}

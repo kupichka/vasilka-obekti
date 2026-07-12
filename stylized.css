@@ -269,3 +269,23 @@ html, body {
     display: none !important;
   }
 }
+
+/* User location pulse animation */
+@keyframes pulse-ring {
+  0% {
+    r: 10;
+    opacity: 0.4;
+  }
+  50% {
+    r: 15;
+    opacity: 0.2;
+  }
+  100% {
+    r: 20;
+    opacity: 0;
+  }
+}
+
+.pulse-circle {
+  animation: pulse-ring 2s infinite;
+}
