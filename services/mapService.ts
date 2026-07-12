@@ -42,6 +42,11 @@ class MapService {
   private mouseMoveThrottle = 40; 
   private lastMouseMove = 0;
 
+  // User location support
+  private userLocationMarker?: L.Marker;
+  private userLocationLayer?: L.LayerGroup;
+  private currentUserLocation?: { lat: number; lng: number };
+
   private logEnter(fn: string) {
     console.log(`entered function ${fn}`);
   }
@@ -901,8 +906,70 @@ class MapService {
       try { this.tempGuessLayer.clearLayers(); } catch (e) {}
       this.tempGuessLayer = undefined;
     }
+    // Clear user location layer
+    this.clearUserLocation();
     this.map?.remove(); 
     this.map = undefined; 
+  }
+
+  // User location methods
+  public setUserLocation(lat: number, lng: number) {
+    if (!this.map) return;
+    
+    this.currentUserLocation = { lat, lng };
+    
+    if (!this.userLocationLayer) {
+      this.userLocationLayer = L.layerGroup().addTo(this.map);
+    }
+    
+    if (this.userLocationMarker) {
+      this.userLocationMarker.setLatLng([lat, lng]);
+    } else {
+      this.userLocationMarker = L.circleMarker([lat, lng], {
+        radius: 10,
+        fillColor: '#3b82f6',
+        color: '#1e40af',
+        weight: 2,
+        opacity: 0.8,
+        fillOpacity: 0.6
+      }).addTo(this.userLocationLayer!);
+      
+      // Add a pulsing circle for better visibility
+      const pulseCircle = L.circleMarker([lat, lng], {
+        radius: 10,
+        fillColor: 'transparent',
+        color: '#3b82f6',
+        weight: 1,
+        opacity: 0.4,
+        className: 'pulse-circle'
+      }).addTo(this.userLocationLayer!);
+    }
+  }
+
+  public showUserLocation() {
+    if (this.userLocationLayer && this.map) {
+      this.userLocationLayer.addTo(this.map);
+    }
+  }
+
+  public hideUserLocation() {
+    if (this.userLocationLayer) {
+      this.userLocationLayer.removeFrom(this.map!);
+    }
+  }
+
+  public clearUserLocation() {
+    if (this.userLocationLayer) {
+      try { this.userLocationLayer.clearLayers(); } catch (e) {}
+      this.userLocationLayer = undefined;
+    }
+    this.userLocationMarker = undefined;
+    this.currentUserLocation = undefined;
+  }
+
+  public flyToUserLocation() {
+    if (!this.map || !this.currentUserLocation) return;
+    this.map.flyTo([this.currentUserLocation.lat, this.currentUserLocation.lng], 16, { duration: 1.0 });
   }
 }
 
