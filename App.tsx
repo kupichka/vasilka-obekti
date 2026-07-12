@@ -69,9 +69,7 @@ const REGION_CATEGORIES = {
   "Други": [
     "Защитени области (27)", "Реки (32)"
   ],
-  "Вендинг машини": [
-    
-  ]
+  "Вендинг машини": [] as string[]
 };
 
 const ALL_CITIES = REGION_CATEGORIES["Градове"];
@@ -90,7 +88,7 @@ export default function App() {
   // Memories for remembering selections when toggling categories
   const [geoHistory, setGeoHistory] = useState<string[]>(isInitialCities ? ALL_GEO : (initialSavedRegions.length ? initialSavedRegions : ALL_GEO));
   const [cityHistory, setCityHistory] = useState<string[]>(isInitialCities && initialSavedRegions.length ? initialSavedRegions : ALL_CITIES);
-  const [vendingHistory, setVendingHistory] = useState<string[]>(ALL_VENDING); // initial selection
+  const [vendingHistory] = useState<string[]>(ALL_VENDING);
   
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [selected, setSelected] = useState<GeoFeature | null>(null)

@@ -15,7 +15,7 @@ function IconWrap({ children }: { children: React.ReactNode }) {
 function CoinIcon() {
   return (
     <IconWrap>
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-pound-sterling-icon lucide-circle-pound-sterling"><circle cx="12" cy="12" r="10"/><path d="M10 16V9.5a1 1 0 0 1 5 0"/><path d="M8 12h4"/><path d="M8 16h7"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-circle-pound-sterling-icon lucide-circle-pound-sterling"><circle cx="12" cy="12" r="10"/><path d="M10 16V9.5a1 1 0 0 1 5 0"/><path d="M8 12h4"/><path d="M8 16h7"/></svg>
     </IconWrap>
   )
 }
@@ -23,7 +23,7 @@ function CoinIcon() {
 function CashIcon() {
   return (
     <IconWrap>
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-banknote-icon lucide-banknote"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-banknote-icon lucide-banknote"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
     </IconWrap>
   )
 }
@@ -162,19 +162,19 @@ export default function InfoPanel({ feature }: Props) {
                 {payments.coins && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <CoinIcon />
-                    <span>Coins</span>
+                    <span>Монети</span>
                   </div>
                 )}
                 {payments.cash && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <CashIcon />
-                    <span>Cash / Notes</span>
+                    <span>Банкноти</span>
                   </div>
                 )}
                 {payments.cards && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <CardIcon />
-                    <span>Cards</span>
+                    <span>Карти</span>
                   </div>
                 )}
               </div>
